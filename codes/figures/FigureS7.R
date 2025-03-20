@@ -1,308 +1,102 @@
 #### load packages ####
-library(tidyverse)
+targetPackages <- c('tidyverse','arrow','patchwork')
+newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Package"])]
+if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
+for(package in targetPackages) library(package, character.only = T)
 
+#### load function ####
+nls_get_ab_speed_normbystimminus05 <- function(dat){
+  # dat <- test[[4]][[1]]
+  res <- nls(formula = speed_normbystimminus05 ~ a * log(stim_time) + b, 
+             start = c(a = 1, b = 1), trace = TRUE,
+             data = dat) %>%
+    summary()
+  
+  dat <- data.frame(dat,
+                    a = res$coefficients[1,1],
+                    b = res$coefficients[2,1])
+  return(dat)
+}
 
-#### Figure S7a-c ####
-##### load dataset #####
-###### gwas_freezing_duration_single_scaleT_female ######
-df_gwas_freezing_duration_single_scaleT_female <- read_parquet("../data/1_single_strain/gwas/df/df_gwas_freezing_duration_single_scaleT_female.parquet") %>%
+#### load dataset ####
+dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial <- read_parquet("../data/2_mixed_strain/parquet/dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial.parquet") %>%
   ungroup()
 
-axisdf_gwas_freezing_duration_single_scaleT_female <- df_gwas_freezing_duration_single_scaleT_female %>% 
-  group_by(CHR) %>% 
-  dplyr::summarize(center=( max(BPcum) + min(BPcum) ) / 2 )
+#### nls for freezing curve ####
+dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial_nls <-
+  dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial %>%
+  filter(stim_time >= 0.5, n_inds == "Group", type != "Mixed") %>%
+  dplyr::mutate(strain = if_else(str_detect(var, "Strain1"), 
+                                 str_split(strain, "_") %>% map_chr(1),
+                                 str_split(strain, "_") %>% map_chr(2))) %>%
+  distinct() %>%
+  group_by(strain, stim_time) %>%
+  dplyr::summarize(speed_normbystimminus05 = mean(speed_normbystimminus05, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_nest(strain) %>%
+  mutate(data = map(data, nls_get_ab_speed_normbystimminus05)) %>%
+  unnest() %>%
+  group_by(strain) %>%
+  dplyr::summarize(a = mean(a, na.rm = TRUE),
+                   b = mean(b, na.rm = TRUE))
 
-###### gwas_freezing_duration_single_scaleT_male ######
-df_gwas_freezing_duration_single_scaleT_male <- read_parquet("../data/1_single_strain/gwas/df/df_gwas_freezing_duration_single_scaleT_male.parquet") %>%
-  ungroup()
-
-axisdf_gwas_freezing_duration_single_scaleT_male <- df_gwas_freezing_duration_single_scaleT_male %>% 
-  group_by(CHR) %>% 
-  dplyr::summarize(center=( max(BPcum) + min(BPcum) ) / 2 )
-
-###### gwas_freezing_duration_group_scaleT_female ######
-df_gwas_freezing_duration_group_scaleT_female <- read_parquet("../data/1_single_strain/gwas/df/df_gwas_freezing_duration_group_scaleT_female.parquet") %>%
-  ungroup()
-
-axisdf_gwas_freezing_duration_group_scaleT_female <- df_gwas_freezing_duration_group_scaleT_female %>% 
-  group_by(CHR) %>% 
-  dplyr::summarize(center=( max(BPcum) + min(BPcum) ) / 2 )
-
-###### gwas_freezing_duration_group_scaleT_male ######
-df_gwas_freezing_duration_group_scaleT_male <- read_parquet("../data/1_single_strain/gwas/df/df_gwas_freezing_duration_group_scaleT_male.parquet") %>%
-  ungroup()
-
-axisdf_gwas_freezing_duration_group_scaleT_male <- df_gwas_freezing_duration_group_scaleT_male %>% 
-  group_by(CHR) %>% 
-  dplyr::summarize(center=( max(BPcum) + min(BPcum) ) / 2 )
-
-###### gwas_nnd_scaleT_female ######
-df_gwas_nnd_scaleT_female <- read_parquet("../data/1_single_strain/gwas/df/df_gwas_nnd_scaleT_female.parquet") %>%
-  ungroup()
-
-axisdf_gwas_nnd_scaleT_female <- df_gwas_nnd_scaleT_female %>% 
-  group_by(CHR) %>% 
-  dplyr::summarize(center=( max(BPcum) + min(BPcum) ) / 2 )
-
-###### gwas_nnd_scaleT_male ######
-df_gwas_nnd_scaleT_male <- read_parquet("../data/1_single_strain/gwas/df/df_gwas_nnd_scaleT_male.parquet") %>%
-  ungroup()
-
-axisdf_gwas_nnd_scaleT_male <- df_gwas_nnd_scaleT_male %>% 
-  group_by(CHR) %>% 
-  dplyr::summarize(center=( max(BPcum) + min(BPcum) ) / 2 )
-
-###### gwas_motion_cue_exit_intercept_scaleT_female ######
-df_gwas_motion_cue_exit_intercept_scaleT_female <- read_parquet("../data/1_single_strain/gwas/df/df_gwas_motion_cue_exit_intercept_scaleT_female.parquet") %>%
-  ungroup()
-
-axisdf_gwas_motion_cue_exit_intercept_scaleT_female <- df_gwas_motion_cue_exit_intercept_scaleT_female %>% 
-  group_by(CHR) %>% 
-  dplyr::summarize(center=( max(BPcum) + min(BPcum) ) / 2 )
-
-###### gwas_motion_cue_exit_intercept_scaleT_male ######
-df_gwas_motion_cue_exit_intercept_scaleT_male <- read_parquet("../data/1_single_strain/gwas/df/df_gwas_motion_cue_exit_intercept_scaleT_male.parquet") %>%
-  ungroup()
-
-axisdf_gwas_motion_cue_exit_intercept_scaleT_male <- df_gwas_motion_cue_exit_intercept_scaleT_male %>% 
-  group_by(CHR) %>% 
-  dplyr::summarize(center=( max(BPcum) + min(BPcum) ) / 2 )
-
-##### make plot #####
-###### Figure S7a1 freezing_duration_single ######
-g_gwas_freezing_duration_single_scaleT_female <- 
-  ggplot(df_gwas_freezing_duration_single_scaleT_female, 
-         aes(x = BPcum, 
-             y = -log10(P),
-             color = as.factor(CHR),
-             alpha = as.factor(is_sig),
-             size = as.factor(is_sig))) +
-  geom_point(shape = 16) +
-  scale_color_manual(values = rep(c("#c8c2be","#71686c"), 22)) +
-  scale_size_manual(values = c(1.3, 2.4)) +
-  scale_alpha_manual(values = c(0.2, 0.9)) +
-  scale_fill_viridis_d() +
-  scale_x_continuous(label = axisdf_gwas_freezing_duration_single_scaleT_female$CHR, breaks = axisdf_gwas_freezing_duration_single_scaleT_female$center) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
-  coord_cartesian(ylim = c(0, 10)) +
-  xlab("Chromosome") +
-  ylab(expression(paste("-Log"[10],"(",italic(P),")"))) +
+#### Figure S7a ####
+df_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial <-
+  dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial %>%
+  filter(stim_time >= 0.5, n_inds == "Group", mixed == "Single strain", alpha == "Observed") %>%
+  separate(strain, into = c("strain1", "strain2")) %>%
+  dplyr::mutate(strain = if_else(type == "Strain1", strain1, strain2)) %>%
+  group_by(strain, stim_time) %>%
+  dplyr::summarize(speed_normbystimminus05 = mean(speed_normbystimminus05, na.rm = TRUE)) %>%
+  ungroup() %>%
+  transform(strain = factor(strain, levels = gtools::mixedsort(unique(.$strain))))
+g_d_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial_nls <-
+  ggplot(df_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial %>%
+           filter(strain != "norpA"),
+         aes(x = stim_time, y = speed_normbystimminus05)) +
+  geom_point(shape = 16, alpha = 0.8) +
+  stat_smooth(method = "nls", se = FALSE,
+              formula = y ~ a * log(x) + b,#y ~ log(x),
+              method.args = list(start = c(a = 1, b = 1)),
+              linewidth = 1, color = "grey") +#, formula = y ~ poly(x, degree = 2, raw = TRUE) - 1) + #formula = y ~ log(x)) + #method = "lm") +
+  scale_x_continuous(breaks = seq(0, 15, 3)) +
+  coord_cartesian(xlim = c(0, 15)) +
+  facet_wrap(~ strain, ncol = 5) +
+  xlab("Time after stimulus (s)") +
+  ylab("Moving speed relative to \n the average at 0.5 s before stimulus") +
   theme_bw() +
-  theme( 
-    legend.position="none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-# g_gwas_freezing_duration_single_scaleT_female
-ggsave("../figures/FigureS7a1.png", 
-       g_gwas_freezing_duration_single_scaleT_female, 
-       width = 6, height = 2)
+  theme(axis.text = element_text(color = "black"),
+        strip.background = element_blank())
+g_d_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial_nls
+ggsave(paste0("../figures/FigureS7a.pdf"), g_d_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial_nls, w=6, h=4)
 
-g_gwas_freezing_duration_single_scaleT_male <- 
-  ggplot(df_gwas_freezing_duration_single_scaleT_male, 
-         aes(x = BPcum, 
-             y = -log10(P),
-             color = as.factor(CHR),
-             alpha = as.factor(is_sig),
-             size = as.factor(is_sig))) +
-  geom_point(shape = 16) +
-  scale_color_manual(values = rep(c("#c8c2be","#71686c"), 22)) +
-  scale_size_manual(values = c(1.3, 2.4)) +
-  scale_alpha_manual(values = c(0.2, 0.9)) +
-  scale_fill_viridis_d() +
-  scale_x_continuous(label = axisdf_gwas_freezing_duration_single_scaleT_male$CHR, breaks = axisdf_gwas_freezing_duration_single_scaleT_male$center) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
-  coord_cartesian(ylim = c(0, 10)) +
-  xlab("Chromosome") +
-  ylab(expression(paste("-Log"[10],"(",italic(P),")"))) +
+
+#### Figure S7b ####
+g_dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial_nls <-
+  ggplot(dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial_nls %>%
+           filter(!str_detect(strain, "norpA")) %>%
+           dplyr::select(a, b) %>%
+           distinct(),
+         aes(x = a, y = b)) +
+  geom_point(shape = 16, alpha = 0.8, size = 3) +
+  stat_smooth(method = "lm", color = "black") +
+  ggpmisc::stat_poly_eq(formula = y ~ x,
+                        aes(label = paste(
+                          stat(eq.label),
+                          # after_stat(rr.label),
+                          # stat(p.value.label),
+                          sep = "~~~")),
+                        label.x = "right",
+                        label.y = "top",
+                        parse = TRUE, size=4) +
+  scale_x_continuous(breaks = seq(0, 1, 0.02)) +
+  coord_cartesian(xlim = c(0, 0.098)) +
+  xlab("Parameter a") +
+  ylab("Parameter b") +
   theme_bw() +
-  theme( 
-    legend.position="none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-# g_gwas_freezing_duration_single_scaleT_male
-ggsave("../figures/FigureS7a2.png", 
-       g_gwas_freezing_duration_single_scaleT_male, 
-       width = 6, height = 2)
+  theme(axis.text = element_text(color = "black"))
 
+g_dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial_nls
+ggsave(paste0("../figures/FigureS7b.pdf"), 
+       g_dfd_s5min_2995_5990_speed_sgd_normbystimminus05_strain_trial_nls, w=3, h=3)
 
-###### Figure S7a2 freezing_duration_group ######
-g_gwas_freezing_duration_group_scaleT_female <- 
-  ggplot(df_gwas_freezing_duration_group_scaleT_female, 
-         aes(x = BPcum, 
-             y = -log10(P),
-             color = as.factor(CHR),
-             alpha = as.factor(is_sig),
-             size = as.factor(is_sig))) +
-  geom_point(shape = 16) +
-  scale_color_manual(values = rep(c("#c099a0","#a25768"), 22)) + 
-  scale_size_manual(values = c(1.3, 2.4)) +
-  scale_alpha_manual(values = c(0.2, 0.9)) +
-  scale_fill_viridis_d() +
-  scale_x_continuous(label = axisdf_gwas_freezing_duration_group_scaleT_female$CHR, breaks = axisdf_gwas_freezing_duration_group_scaleT_female$center) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
-  coord_cartesian(ylim = c(0, 10)) +
-  xlab("Chromosome") +
-  ylab(expression(paste("-Log"[10],"(",italic(P),")"))) +
-  theme_bw() +
-  theme( 
-    legend.position="none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-# g_gwas_freezing_duration_group_scaleT_female
-ggsave("../figures/FigureS7a3.png", 
-       g_gwas_freezing_duration_group_scaleT_female, 
-       width = 6, height = 2)
-
-g_gwas_freezing_duration_group_scaleT_male <- 
-  ggplot(df_gwas_freezing_duration_group_scaleT_male, 
-         aes(x = BPcum, 
-             y = -log10(P),
-             color = as.factor(CHR),
-             alpha = as.factor(is_sig),
-             size = as.factor(is_sig))) +
-  geom_point(shape = 16) +
-  scale_color_manual(values = rep(c("#c099a0","#a25768"), 22)) +
-  scale_size_manual(values = c(1.3, 2.4)) +
-  scale_alpha_manual(values = c(0.2, 0.9)) +
-  scale_fill_viridis_d() +
-  scale_x_continuous(label = axisdf_gwas_freezing_duration_group_scaleT_male$CHR, breaks = axisdf_gwas_freezing_duration_group_scaleT_male$center) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
-  coord_cartesian(ylim = c(0, 10)) +
-  xlab("Chromosome") +
-  ylab(expression(paste("-Log"[10],"(",italic(P),")"))) +
-  theme_bw() +
-  theme( 
-    legend.position="none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-# g_gwas_freezing_duration_group_scaleT_male
-ggsave("../figures/FigureS7a4.png", 
-       g_gwas_freezing_duration_group_scaleT_male, 
-       width = 6, height = 2)
-
-
-###### Figure S7b nnd ######
-g_gwas_nnd_scaleT_female <- 
-  ggplot(df_gwas_nnd_scaleT_female, 
-         aes(x = BPcum, 
-             y = -log10(P),
-             color = as.factor(CHR),
-             alpha = as.factor(is_sig),
-             size = as.factor(is_sig))) +
-  geom_point(shape = 16) +
-  scale_color_manual(values = rep(c("#c099a0","#a25768"), 22)) +
-  scale_size_manual(values = c(1.3, 2.4)) +
-  scale_alpha_manual(values = c(0.2, 0.9)) +
-  scale_fill_viridis_d() +
-  scale_x_continuous(label = axisdf_gwas_nnd_scaleT_female$CHR, breaks = axisdf_gwas_nnd_scaleT_female$center) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
-  coord_cartesian(ylim = c(0, 10)) +
-  xlab("Chromosome") +
-  ylab(expression(paste("-Log"[10],"(",italic(P),")"))) +
-  theme_bw() +
-  theme( 
-    legend.position="none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-# g_gwas_nnd_scaleT_female
-ggsave("../figures/FigureS7b1.png", 
-       g_gwas_nnd_scaleT_female, 
-       width = 6, height = 2)
-
-g_gwas_nnd_scaleT_male <- 
-  ggplot(df_gwas_nnd_scaleT_male, 
-         aes(x = BPcum, 
-             y = -log10(P),
-             color = as.factor(CHR),
-             alpha = as.factor(is_sig),
-             size = as.factor(is_sig))) +
-  geom_point(shape = 16) +
-  scale_color_manual(values = rep(c("#c099a0","#a25768"), 22)) + 
-  scale_size_manual(values = c(1.3, 2.4)) +
-  scale_alpha_manual(values = c(0.2, 0.9)) +
-  scale_fill_viridis_d() +
-  scale_x_continuous(label = axisdf_gwas_nnd_scaleT_male$CHR, breaks = axisdf_gwas_nnd_scaleT_male$center) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
-  coord_cartesian(ylim = c(0, 10)) +
-  xlab("Chromosome") +
-  ylab(expression(paste("-Log"[10],"(",italic(P),")"))) +
-  theme_bw() +
-  theme( 
-    legend.position="none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-# g_gwas_nnd_scaleT_male
-ggsave("../figures/FigureS7b2.png", 
-       g_gwas_nnd_scaleT_male, 
-       width = 6, height = 2)
-
-###### Figure S7c motion_cue_exit_intercept ######
-g_gwas_motion_cue_exit_intercept_scaleT_female <- 
-  ggplot(df_gwas_motion_cue_exit_intercept_scaleT_female, 
-         aes(x = BPcum, 
-             y = -log10(P),
-             color = as.factor(CHR),
-             alpha = as.factor(is_sig),
-             size = as.factor(is_sig))) +
-  geom_point(shape = 16) +
-  scale_color_manual(values = rep(c("#c099a0","#a25768"), 22)) + 
-  scale_size_manual(values = c(1.3, 2.4)) +
-  scale_alpha_manual(values = c(0.2, 0.9)) +
-  scale_fill_viridis_d() +
-  scale_x_continuous(label = axisdf_gwas_motion_cue_exit_intercept_scaleT_female$CHR, breaks = axisdf_gwas_motion_cue_exit_intercept_scaleT_female$center) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
-  coord_cartesian(ylim = c(0, 10)) +
-  xlab("Chromosome") +
-  ylab(expression(paste("-Log"[10],"(",italic(P),")"))) +
-  theme_bw() +
-  theme( 
-    legend.position="none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-# g_gwas_motion_cue_exit_intercept_scaleT_female
-ggsave("../figures/FigureS7c1.png", 
-       g_gwas_motion_cue_exit_intercept_scaleT_female, 
-       width = 6, height = 2)
-
-g_gwas_motion_cue_exit_intercept_scaleT_male <- 
-  ggplot(df_gwas_motion_cue_exit_intercept_scaleT_male, 
-         aes(x = BPcum, 
-             y = -log10(P),
-             color = as.factor(CHR),
-             alpha = as.factor(is_sig),
-             size = as.factor(is_sig))) +
-  geom_point(shape = 16) +
-  scale_color_manual(values = rep(c("#c099a0","#a25768"), 22)) + 
-  scale_size_manual(values = c(1.3, 2.4)) +
-  scale_alpha_manual(values = c(0.2, 0.9)) +
-  scale_fill_viridis_d() +
-  scale_x_continuous(label = axisdf_gwas_motion_cue_exit_intercept_scaleT_male$CHR, breaks = axisdf_gwas_motion_cue_exit_intercept_scaleT_male$center) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
-  coord_cartesian(ylim = c(0, 10)) +
-  xlab("Chromosome") +
-  ylab(expression(paste("-Log"[10],"(",italic(P),")"))) +
-  theme_bw() +
-  theme( 
-    legend.position="none",
-    panel.border = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
-  )
-# g_gwas_motion_cue_exit_intercept_scaleT_male
-ggsave("../figures/FigureS7c2.png", 
-       g_gwas_motion_cue_exit_intercept_scaleT_male, 
-       width = 6, height = 2)

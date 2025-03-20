@@ -1,15 +1,8 @@
-#### load libraries ####
-rm(list = ls(all.names = TRUE))
-list.of.packages <- c('tidyverse','data.table','slider','gtools','sf','arrow')
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
-
-library(tidyverse)
-library(data.table) #fread
-library(slider)
-library(gtools)
-library(sf)
-library(arrow)
+#### load packages ####
+targetPackages <- c('tidyverse','data.table','slider','gtools','sf','arrow')
+newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Package"])]
+if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
+for(package in targetPackages) library(package, character.only = T)
 
 #### load functions ####
 # function to add nearest neighbor distance for each row (each individual per frame)
@@ -127,6 +120,12 @@ count_visual_num_ind <- function(dat){
                     motion_cue = motion_cue_li)
 }
 
+calc_glm_coeff <- function(dat){
+  glm_res <- dat %>%
+    glm(formula = change_posture ~ motion_cue_diff3, family = "binomial")
+  return(c(glm_res$coefficients[1],glm_res$coefficients[2]))
+}
+
 
 # a list to centralize the coordinate
 cent_mask_x <- c(-5, -3, -2, 2, -5, -3, -2, 2, -5, -3, -2, 2)
@@ -136,8 +135,10 @@ names(cent_mask_y) <- paste0("no",seq(1,12))
 
 
 #### load dataset and convert to parquet ####
+datadir <- "$DATADIR" # data directory for tsv files
+
 tbl_fread <- 
-  list.files(paste0("${dataset}/1_single_strain/", date, "/"), 
+  list.files(paste0(datadir, "/1_single_strain/tsv/"), 
              pattern = "*.tsv", full.names = TRUE, recursive=T) %>% 
   map_df(~fread(.))
 
@@ -191,7 +192,6 @@ df_tmp <- tbl_fread %>%
                   id, pos_x, pos_y, travelled_dist_diff, angle_diff_based,
                   vec_norm, angle_x_end, angle_y_end, angle, angle_stim))
 
-
 df <- df_tmp %>%
   group_by(filename, date, prefix, place, strain, sex, age, n_inds, N, id, seconds_total = as.integer(seconds_total*2)/2) %>%
   dplyr::summarize(pos_x = mean(pos_x),
@@ -213,8 +213,7 @@ df <- df_tmp %>%
   unnest(data) %>%
   dplyr::select(filename, prefix, place, strain, sex, age, n_inds, N, seconds_total, id, posture, everything()) %>%
   dplyr::select(-c(matches("^X\\d|\\.")))
-
-write_parquet(df, "${dataset}/1_single_strain/parquet/df_0.parquet")
+write_parquet(df, paste0(datadir, "/1_single_strain/parquet/df_0.parquet"))
 
 
 #### make df ####
@@ -235,27 +234,29 @@ df <- add_samplenum_trial(df) %>%
                 orientation_order = sum_r / 6,
                 sex = str_to_title(sex)) %>%
   ungroup()
-
+write_parquet(df, paste0(datadir, "/data/1_single_strain/parquet/df.parquet"))
+# df <- read_parquet(paste0(datadir, "/data/1_single_strain/parquet/df.parquet")) %>%
+#   ungroup()
 
 ## data first 5 min
 df_f5min <- df %>%
   filter(seconds_total < 300)
-write_parquet(df_f5min, paste0("${dataset}/1_single_strain/parquet/df_f5min.parquet"))
-# df_f5min <- read_parquet("${dataset}/1_single_strain/parquet/df_f5min.parquet") %>%
+write_parquet(df_f5min, paste0(datadir, "/data/1_single_strain/parquet/df_f5min.parquet"))
+# df_f5min <- read_parquet(paste0(datadir, "/data/1_single_strain/parquet/df_f5min.parquet")) %>%
 #   ungroup()
 
 ## data first 10 min
 df_f10min <- df %>%
   filter(seconds_total < 600)
-write_parquet(df_f10min, paste0("${dataset}/1_single_strain/parquet/df_f10min.parquet"))
-# df_f10min <- read_parquet("${dataset}/1_single_strain/parquet/df_f10min.parquet") %>%
+write_parquet(df_f10min, paste0(datadir, "/data/1_single_strain/parquet/df_f10min.parquet"))
+# df_f10min <- read_parquet(paste0(datadir, "/data/1_single_strain/parquet/df_f10min.parquet")) %>%
 #   ungroup()
 
 ## data middle 5 min
 df_s5min <- df %>%
   filter(298.5 < seconds_total, seconds_total < 600)
-write_parquet(df_s5min, paste0("${dataset}/1_single_strain/parquet/df_s5min.parquet"))
-# df_s5min <- read_parquet("${dataset}/1_single_strain/parquet/df_s5min.parquet") %>%
+write_parquet(df_s5min, paste0(datadir, "/data/1_single_strain/parquet/df_s5min.parquet"))
+# df_s5min <- read_parquet(paste0(datadir, "/data/1_single_strain/parquet/df_s5min.parquet")) %>%
 #   ungroup()
 
 ## add stim info
@@ -278,16 +279,15 @@ df_s5min_stim <- df_s5min %>%
                                     posture == "stop" & posture_1s == "walk" ~ "sw")) %>%
   filter(seconds_total != 599)
 
-write_parquet(df_s5min_stim, paste0("${dataset}/1_single_strain/parquet/df_s5min_stim.parquet"))
-# df_s5min_stim <- read_parquet("${dataset}/1_single_strain/parquet/df_s5min_stim.parquet") %>%
+write_parquet(df_s5min_stim, paste0(datadir, "/data/1_single_strain/parquet/df_s5min_stim.parquet"))
+# df_s5min_stim <- read_parquet(paste0(datadir, "/data/1_single_strain/parquet/df_s5min_stim.parquet")) %>%
 #   ungroup()
 
-## s5min (from 299.5-599) for foraging success
+## s5min (from 299.5-599)
 df_s5min_2995_5990 <- df %>%
   filter(299 < seconds_total, seconds_total < 599.5)
-
-write_parquet(df_s5min_2995_5990, "../data/1_single_strain/df_s5min_2995_5990.parquet")
-# df_s5min_2995_5990 <- read_parquet("../data/1_single_strain/df_s5min_2995_5990.parquet") %>%
+write_parquet(df_s5min_2995_5990, paste0(datadir, "/data/1_single_strain/parquet/df_s5min_2995_5990.parquet"))
+# df_s5min_2995_5990 <- read_parquet(paste0(datadir, "/data/1_single_strain/parquet/df_s5min_2995_5990.parquet")) %>%
 #   ungroup()
 
 
@@ -302,41 +302,27 @@ df_f5min_speed <- df_f5min %>%
   arrange(strain, n_inds, sex, trial, id) %>%
   transform(n_inds = factor(n_inds, levels = c("Single", "Group")),
             strain = factor(strain, levels = unique(.$strain) %>% as.character() %>% gtools::mixedsort()))
-
-write_parquet(df_f5min_speed, "../data/1_single_strain/df_f5min_speed.parquet")
-# df_f5min_speed <- read_parquet("../data/1_single_strain/df_f5min_speed.parquet") %>%
+write_parquet(df_f5min_speed, "../data/1_single_strain/parquet/df_f5min_speed.parquet")
+# df_f5min_speed <- read_parquet("../data/1_single_strain/parquet/df_f5min_speed.parquet") %>%
 #   ungroup()
 
 df_f5min_speed_ave <- df_f5min_speed %>%
   group_by(strain, n_inds, sex, trial, id) %>%
   dplyr::summarize(speed_f5min_ave = mean(speed, na.rm = T))
-write_parquet(df_f5min_speed_ave, "../data/1_single_strain/df_f5min_speed_ave.parquet")
-# df_f5min_speed_ave <- read_parquet("../data/1_single_strain/df_f5min_speed_ave.parquet") %>%
+write_parquet(df_f5min_speed_ave, "../data/1_single_strain/parquet/df_f5min_speed_ave.parquet")
+# df_f5min_speed_ave <- read_parquet("../data/1_single_strain/parquet/df_f5min_speed_ave.parquet") %>%
 #   ungroup()
 
-
-df_f10min_speed_trial <- 
-  df_f10min %>%
+df_f10min_speed <- df_f10min %>%
   mutate(n_inds = if_else(n_inds == 1, "Single", "Group"),
          speed = speed * 30 /100) %>%
-  group_by(strain, n_inds, sex, trial, seconds_total) %>%
+  group_by(strain, n_inds, sex, seconds_total) %>%
   dplyr::summarize(speed = mean(speed, na.rm = T)) %>%
   transform(n_inds = factor(n_inds, levels = c("Single", "Group")),
-            strain = factor(strain, levels = unique(.$strain) %>% as.character() %>% mixedsort()))
-
-write_parquet(df_f10min_speed_trial, "${dataset}/1_single_strain/parquet/df_f10min_speed_trial.parquet")
-# df_f10min_speed_trial <- read_parquet("${dataset}/1_single_strain/parquet/df_f10min_speed_trial.parquet") %>%
+            strain = factor(strain, levels = unique(.$strain) %>% as.character() %>% gtools::mixedsort()))
+write_parquet(df_f10min_speed, "../data/1_single_strain/parquet/df_f10min_speed.parquet")
+# df_f10min_speed <- read_parquet("../data/1_single_strain/parquet/df_f10min_speed.parquet") %>%
 #   ungroup()
-
-df_f10min_speed <- df_f10min_speed_trial %>%
-  group_by(strain, n_inds, sex, seconds_total) %>%
-  dplyr::summarize(speed = mean(speed, na.rm = TRUE)) %>%
-  ungroup()
-
-write_parquet(df_f10min_speed, "../data/1_single_strain/df_f10min_speed.parquet")
-# df_f10min_speed <- read_parquet("../data/1_single_strain/df_f10min_speed.parquet") %>%
-#   ungroup()
-
 
 df_s5min_2995_5990_speed <- df_s5min_2995_5990 %>%
   mutate(stim_time = (seconds_total + 0.5) %% 15 - 0.5,
@@ -347,13 +333,13 @@ df_s5min_2995_5990_speed <- df_s5min_2995_5990 %>%
   dplyr::summarize(speed = mean(speed, na.rm = TRUE)) %>%
   transform(n_inds = factor(n_inds, levels = c("Single", "Group")),
             strain = factor(strain, levels = unique(.$strain) %>% as.character() %>% mixedsort()))
-
-write_parquet(df_s5min_2995_5990_speed, "../data/1_single_strain/df_s5min_2995_5990_speed.parquet")
-# df_s5min_2995_5990_speed <- read_parquet("../data/1_single_strain/df_s5min_2995_5990_speed.parquet") %>%
+write_parquet(df_s5min_2995_5990_speed, "../data/1_single_strain/parquet/df_s5min_2995_5990_speed.parquet")
+# df_s5min_2995_5990_speed <- read_parquet("../data/1_single_strain/parquet/df_s5min_2995_5990_speed.parquet") %>%
 #   ungroup()
 
-##### pseudo-group nnd #####
-include_samples <- read.csv("${dataset}/1_single_strain/included_samples.txt", head=F) %>%
+
+##### nnd with pseudo-group #####
+include_samples <- read.csv("../data/1_single_strain/included_samples.txt", header = FALSE) %>%
   pull(V1)
 sex <- c("male", "female")
 df_f5min_rand <- data.frame()
@@ -386,8 +372,8 @@ for (sex in sex){
 df_f5min_rand <- df_f5min_rand %>%
   dplyr::mutate(sex = str_to_title(sex)) %>%
   bind_cols(data.frame(trial = rep(seq(1:20), 2)))
-write_parquet(df_f5min_rand, "${dataset}/1_single_strain/parquet/df_f5min_rand.parquet")
-# df_f5min_rand <- read_parquet("${dataset}/1_single_strain/parquet/df_f5min_rand.parquet") %>%
+write_parquet(df_f5min_rand, "../data/1_single_strain/parquet/df_f5min_rand.parquet")
+# df_f5min_rand <- read_parquet("../data/1_single_strain/parquet/df_f5min_rand.parquet") %>%
 #   ungroup()
 
 df_f5min_nnd <- df_f5min %>%
@@ -407,9 +393,36 @@ df_f5min_nnd_rand <-
          time = str_sub(prefix, start=9, end=12) %>% as.POSIXct(format = format('%H%M'))) %>%
   dplyr::select(date, time, prefix, place, strain, sex, trial, nnd) %>%
   arrange(strain, sex, trial)
-write_parquet(df_f5min_nnd_rand, "../data/1_single_strain/df_f5min_nnd_rand.parquet")
-# df_f5min_nnd_rand <- read_parquet("../data/1_single_strain/df_f5min_nnd_rand.parquet") %>%
+write_parquet(df_f5min_nnd_rand, "../data/1_single_strain/parquet/df_f5min_nnd_rand.parquet")
+# df_f5min_nnd_rand <- read_parquet("../data/1_single_strain/parquet/df_f5min_nnd_rand.parquet") %>%
 #   ungroup()
+
+
+###### nnd female scaled ######
+df_out_nnd_female_scaled_GREML <- df_f5min_nnd %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Female") %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  group_by(strain) %>%
+  dplyr::summarize(nnd = mean(nnd, na.rm=T)) %>%
+  mutate(row = strain) %>%
+  dplyr::select(row, strain, nnd) %>%
+  mutate_at(vars(starts_with("nnd")), ~(predict(bestNormalize(.)) %>% as.vector))
+write_delim(df_out_nnd_female_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_nnd_female_scaled_GREML.txt", delim = " ", col_names = F)
+
+###### nnd male scaled ######
+df_out_nnd_male_scaled_GREML <- df_f5min_nnd %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Male") %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  group_by(strain) %>%
+  dplyr::summarize(nnd = mean(nnd, na.rm=T)) %>%
+  mutate(row = strain) %>%
+  dplyr::select(row, strain, nnd) %>%
+  mutate_at(vars(starts_with("nnd")), ~(predict(bestNormalize(.)) %>% as.vector))
+write_delim(df_out_nnd_male_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_nnd_male_scaled_GREML.txt", delim = " ", col_names = F)
 
 
 ##### motion cue exit #####
@@ -419,8 +432,8 @@ df_s5min_stim_vis <- df_s5min_stim %>%
   dplyr::mutate(data = map(data, count_visual_num_ind)) %>%
   unnest(data) %>%
   arrange(strain, n_inds, sex, trial, id, stim_no, stimuli)
-write_parquet(df_s5min_stim_vis, "${dataset}/1_single_strain/parquet/df_s5min_stim_vis_0.5.parquet")
-# df_s5min_stim_vis <- read_parquet("${dataset}/1_single_strain/parquet/df_s5min_stim_vis_0.5.parquet") %>%
+write_parquet(df_s5min_stim_vis, "../data/1_single_strain/parquet/df_s5min_stim_vis_0.5.parquet")
+# df_s5min_stim_vis <- read_parquet("../data/1_single_strain/parquet/df_s5min_stim_vis_0.5.parquet") %>%
 #   ungroup()
 
 df_s5min_stim_freez_vis <- df_s5min_stim_vis %>%
@@ -444,8 +457,8 @@ df_motion_cue_exit_coeff <- df_motion_cue_exit %>%
   dplyr::mutate(var = if_else(row_number() == 1, "motion_cue_exit_intercept", "motion_cue_exit_coeff")) %>%
   pivot_wider(names_from = var, values_from = data)
 
-write_parquet(df_motion_cue_exit_coeff, "../data/1_single_strain/df_motion_cue_exit_coeff.parquet")
-# df_motion_cue_exit_coeff <- read_parquet("../data/1_single_strain/df_motion_cue_exit_coeff.parquet") %>%
+write_parquet(df_motion_cue_exit_coeff, "../data/1_single_strain/parquet/df_motion_cue_exit_coeff.parquet")
+# df_motion_cue_exit_coeff <- read_parquet("../data/1_single_strain/parquet/df_motion_cue_exit_coeff.parquet") %>%
 #   ungroup()
 
 df_motion_cue_exit_coeff_trial <- df_motion_cue_exit %>%
@@ -456,9 +469,146 @@ df_motion_cue_exit_coeff_trial <- df_motion_cue_exit %>%
   dplyr::mutate(var = if_else(row_number() == 1, "motion_cue_exit_intercept", "motion_cue_exit_coeff")) %>%
   pivot_wider(names_from = var, values_from = data)
 
-write_parquet(df_motion_cue_exit_coeff_trial, "../data/1_single_strain/df_motion_cue_exit_coeff_trial.parquet")
-# df_motion_cue_exit_coeff_trial <- read_parquet("../data/1_single_strain/df_motion_cue_exit_coeff_trial.parquet") %>%
+write_parquet(df_motion_cue_exit_coeff_trial, "../data/1_single_strain/parquet/df_motion_cue_exit_coeff_trial.parquet")
+# df_motion_cue_exit_coeff_trial <- read_parquet("../data/1_single_strain/parquet/df_motion_cue_exit_coeff_trial.parquet") %>%
 #   ungroup()
+
+###### motion_cue_exit_intecept female ######
+df_out_motion_cue_exit_intercept_female_GREML <- df_motion_cue_exit_coeff %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Female") %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, motion_cue_exit_intercept)
+write_delim(df_out_motion_cue_exit_intercept_female_GREML, "../data/1_single_strain/gwas/pheno/df_out_motion_cue_exit_intercept_female_GREML.txt", delim = " ", col_names = F)
+
+###### motion_cue_exit_intecept male ######
+df_out_motion_cue_exit_intercept_male_GREML <- df_motion_cue_exit_coeff %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Male") %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, motion_cue_exit_intercept)
+write_delim(df_out_motion_cue_exit_intercept_male_GREML, "../data/1_single_strain/gwas/pheno/df_out_motion_cue_exit_intercept_male_GREML.txt", delim = " ", col_names = F)
+
+
+###### motion_cue_exit_intecept female scaled ######
+set.seed(12345)
+df_out_motion_cue_exit_intercept_female_scaled_GREML <- df_motion_cue_exit_coeff %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Female") %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, motion_cue_exit_intercept) %>% 
+  as.data.frame() %>%
+  mutate_at(vars(starts_with("motion_cue_exit_intercept")), ~(predict(bestNormalize(.)) %>% as.vector))
+write_delim(df_out_motion_cue_exit_intercept_female_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_motion_cue_exit_intercept_female_scaled_GREML.txt", delim = " ", col_names = F)
+
+###### motion_cue_exit_intecept male scaled ######
+set.seed(12345)
+df_out_motion_cue_exit_intercept_male_scaled_GREML <- df_motion_cue_exit_coeff %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Male") %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, motion_cue_exit_intercept) %>% 
+  as.data.frame() %>%
+  mutate_at(vars(starts_with("motion_cue_exit_intercept")), ~(predict(bestNormalize(.)) %>% as.vector))
+write_delim(df_out_motion_cue_exit_intercept_male_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_motion_cue_exit_intercept_male_scaled_GREML.txt", delim = " ", col_names = F)
+
+
+
+##### motion cue alternative metric #####
+df_s5min_2995_5990_vis <- df_s5min_2995_5990 %>%
+  mutate(stim_no = as.integer((seconds_total - 299) %/% 15 + 1),
+         stim_time = (seconds_total + 0.5) %% 15 - 0.5,
+         n_inds = if_else(n_inds == 1, "Single", "Group"),
+         time = as.POSIXct(prefix, format = format('%Y%m%d%H%M%S')) %>% format("%H:%M"),
+         speed = speed * 30 / 100) %>%
+  group_nest(filename, stim_no, stim_time) %>%
+  dplyr::mutate(data = map(data, count_visual_num_ind)) %>%
+  unnest(data) %>%
+  arrange(strain, n_inds, sex, trial, id, stim_no, stim_time)
+
+write_parquet(df_s5min_2995_5990_vis, "../data/1_single_strain/parquet/df_s5min_2995_5990_vis_0.5.parquet")
+# df_s5min_2995_5990_vis <- read_parquet("../data/1_single_strain/parquet/df_s5min_2995_5990_vis_0.5.parquet") %>%
+#   ungroup()
+
+df_s5min_2995_5990_vis_speed <-
+  df_s5min_2995_5990_vis %>%
+  group_by(strain, sex, n_inds, trial, id, stim_no, stim_time, date, time, filename, prefix, place) %>%
+  dplyr::summarize(speed = mean(speed, na.rm = TRUE),
+                   motion_cue  = mean(motion_cue, na.rm = TRUE)) %>%
+  ungroup() %>%
+  left_join(df_f5min_speed_ave, 
+            by = c("strain", "n_inds", "sex", "trial", "id"))
+write_parquet(df_s5min_2995_5990_vis_speed, "../data/1_single_strain/parquet/df_s5min_2995_5990_vis_speed.parquet")
+# df_s5min_2995_5990_vis_speed <- read_parquet("../data/1_single_strain/parquet/df_s5min_2995_5990_vis_speed.parquet") %>%
+#   ungroup()
+
+df_s5min_2995_5990_vis_speed_filt0.5_no <- 
+  df_s5min_2995_5990_vis_speed %>%
+  dplyr::filter(n_inds == "Group") %>%
+  ungroup() %>%
+  dplyr::filter(stim_no <= 20, stim_time > 0) %>%
+  dplyr::group_by(strain, sex, n_inds, trial, id, stim_no) %>%
+  dplyr::mutate(motion_cue_cumsum = cumsum(motion_cue)) %>%
+  ungroup()
+
+df_s5min_2995_5990_vis_speed_filt0.5_no_exit_abs4mmsec <-
+  df_s5min_2995_5990_vis_speed_filt0.5_no %>%
+  dplyr::filter(speed > 4) %>%
+  group_by(strain, sex, n_inds, trial, id, stim_no) %>%
+  dplyr::slice(1) %>%
+  ungroup() %>%
+  pivot_wider(id_cols = c(strain, sex, n_inds, id, stim_no),
+              names_from = trial, values_from = stim_time,
+              values_fill = 14) %>%
+  pivot_longer(cols = !c(strain, sex, n_inds, id, stim_no),
+               names_to = "trial",
+               values_to = "stim_time") %>%
+  dplyr::mutate(trial = as.numeric(trial)) %>%
+  left_join(df_s5min_2995_5990_vis_speed_filt0.5_no,
+            by = c("strain", "sex", "n_inds", "trial", "id", "stim_no", "stim_time")) %>%
+  dplyr::mutate(motion_cue_cumsum_ave = motion_cue_cumsum / stim_time) %>%
+  arrange(strain, sex, n_inds, trial, stim_no, id) %>%
+  dplyr::select(strain, sex, n_inds, trial, id, stim_no, everything())
+
+write_parquet(df_s5min_2995_5990_vis_speed_filt0.5_no_exit_abs4mmsec, "../data/1_single_strain/parquet/df_s5min_2995_5990_vis_speed_filt0.5_no_exit_abs4mmsec.parquet")
+# df_s5min_2995_5990_vis_speed_filt0.5_no_exit_abs4mmsec <- read_parquet("../data/1_single_strain/parquet/df_s5min_2995_5990_vis_speed_filt0.5_no_exit_abs4mmsec.parquet") %>%
+#   ungroup()
+
+###### motion_cue_stop_freezing_abs female scaled ######
+set.seed(12345)
+df_out_motion_cue_stop_freezing_abs_female_scaled_GREML <- df_s5min_2995_5990_vis_speed_filt0.5_no_exit_abs4mmsec %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Female") %>%
+  group_by(strain) %>%
+  dplyr::summarize(motion_cue_stop_freezing_abs = mean(motion_cue_cumsum, na.rm=T)) %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, motion_cue_stop_freezing_abs) %>%
+  as.data.frame() %>%
+  # mutate_at(vars(starts_with("motion_cue_stop_freezing_abs")), ~(scale(.) %>% as.vector))
+  mutate_at(vars(starts_with("motion_cue_stop_freezing_abs")), 
+            ~(bestNormalize::bestNormalize(.) %>% predict() %>% as.vector))
+write_delim(df_out_motion_cue_stop_freezing_abs_female_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_motion_cue_stop_freezing_abs_female_scaled_GREML.txt", delim = " ", col_names = F)
+
+###### motion_cue_stop_freezing_abs male scaled ######
+set.seed(12345)
+df_out_motion_cue_stop_freezing_abs_male_scaled_GREML <- df_s5min_2995_5990_vis_speed_filt0.5_no_exit_abs4mmsec %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Male") %>%
+  group_by(strain) %>%
+  dplyr::summarize(motion_cue_stop_freezing_abs = mean(motion_cue_cumsum, na.rm=T)) %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, motion_cue_stop_freezing_abs) %>%
+  as.data.frame() %>%
+  # mutate_at(vars(starts_with("motion_cue_stop_freezing_abs")), ~(scale(.) %>% as.vector))
+  mutate_at(vars(starts_with("motion_cue_stop_freezing_abs")), 
+            ~(bestNormalize::bestNormalize(.) %>% predict() %>% as.vector))
+write_delim(df_out_motion_cue_stop_freezing_abs_male_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_motion_cue_stop_freezing_abs_male_scaled_GREML.txt", delim = " ", col_names = F)
 
 
 ##### freezing duration #####
@@ -493,6 +643,71 @@ df_s5min_2995_5990_freezing_duration <-
               dplyr::slice(1) %>%
               dplyr::select(strain, sex, n_inds, trial, date, time, prefix, place))
 
-write_parquet(df_s5min_2995_5990_freezing_duration, "../data/1_single_strain/df_s5min_2995_5990_freezing_duration.parquet")
-# df_s5min_2995_5990_freezing_duration <- read_parquet("../data/1_single_strain/df_s5min_2995_5990_freezing_duration.parquet") %>%
+write_parquet(df_s5min_2995_5990_freezing_duration, "../data/1_single_strain/parquet/df_s5min_2995_5990_freezing_duration.parquet")
+# df_s5min_2995_5990_freezing_duration <- read_parquet("../data/1_single_strain/parquet/df_s5min_2995_5990_freezing_duration.parquet") %>%
 #   ungroup()
+
+
+###### freezing_duration_single female scaled ######
+set.seed(12345)
+df_out_freezing_duration_single_female_scaled_GREML <- df_s5min_2995_5990_freezing_duration %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Female", n_inds == "Single") %>%
+  group_by(strain) %>%
+  dplyr::summarize(freezing_duration = mean(freezing_duration, na.rm=T)) %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, freezing_duration) %>%
+  as.data.frame() %>%
+  # mutate_at(vars(starts_with("freezing_duration")), ~(scale(.) %>% as.vector))
+  mutate_at(vars(starts_with("freezing_duration")), 
+            ~(bestNormalize::bestNormalize(.) %>% predict() %>% as.vector))
+write_delim(df_out_freezing_duration_single_female_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_freezing_duration_single_female_scaled_GREML.txt", delim = " ", col_names = F)
+
+###### freezing_duration_single male scaled ######
+set.seed(12345)
+df_out_freezing_duration_single_male_scaled_GREML <- df_s5min_2995_5990_freezing_duration %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Male", n_inds == "Single") %>%
+  group_by(strain) %>%
+  dplyr::summarize(freezing_duration = mean(freezing_duration, na.rm=T)) %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, freezing_duration) %>%
+  as.data.frame() %>%
+  # mutate_at(vars(starts_with("freezing_duration")), ~(scale(.) %>% as.vector))
+  mutate_at(vars(starts_with("freezing_duration")), 
+            ~(bestNormalize::bestNormalize(.) %>% predict() %>% as.vector))
+write_delim(df_out_freezing_duration_single_male_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_freezing_duration_single_male_scaled_GREML.txt", delim = " ", col_names = F)
+
+###### freezing_duration_group female scaled ######
+df_out_freezing_duration_group_female_scaled_GREML <- df_s5min_2995_5990_freezing_duration %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Female", n_inds == "Group") %>%
+  group_by(strain) %>%
+  dplyr::summarize(freezing_duration = mean(freezing_duration, na.rm=T)) %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, freezing_duration) %>%
+  as.data.frame() %>%
+  # mutate_at(vars(starts_with("freezing_duration")), ~(scale(.) %>% as.vector))
+  mutate_at(vars(starts_with("freezing_duration")), 
+            ~(bestNormalize::bestNormalize(.) %>% predict() %>% as.vector))
+write_delim(df_out_freezing_duration_group_female_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_freezing_duration_group_female_scaled_GREML.txt", delim = " ", col_names = F)
+
+###### freezing_duration_group male scaled ######
+set.seed(12345)
+df_out_freezing_duration_group_male_scaled_GREML <- df_s5min_2995_5990_freezing_duration %>%
+  ungroup() %>%
+  filter(!strain %in% c("norpA","DGRP208_norpA"), sex == "Male", n_inds == "Group") %>%
+  group_by(strain) %>%
+  dplyr::summarize(freezing_duration = mean(freezing_duration, na.rm=T)) %>%
+  mutate(strain = paste0("line_",parse_number(as.character(strain))),
+         row = strain) %>%
+  dplyr::select(row, strain, freezing_duration) %>%
+  as.data.frame() %>%
+  # mutate_at(vars(starts_with("freezing_duration")), ~(scale(.) %>% as.vector))
+  mutate_at(vars(starts_with("freezing_duration")), 
+            ~(bestNormalize::bestNormalize(.) %>% predict() %>% as.vector))
+write_delim(df_out_freezing_duration_group_male_scaled_GREML, "../data/1_single_strain/gwas/pheno/df_out_freezing_duration_group_male_scaled_GREML.txt", delim = " ", col_names = F)
+

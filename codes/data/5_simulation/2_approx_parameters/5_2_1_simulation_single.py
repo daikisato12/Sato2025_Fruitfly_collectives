@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-# created by Daiki Sato and updated on 2023/12/8
-# python3 5_1_1_simulation_single.py 1000
+# created by Daiki Sato and updated on 2025/3/20
+# python3 5_2_1_simulation_single.py 600 0
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 import pandas as pd
 import math
-import csv
 import sys
+import os
 
 args = sys.argv
 
 num_agents = 1                   # Number of flies
-social_influence =  0.1          # Coefficient of aligning speed with neighboring flies
 agent_size = 1                   # agent size (mm)
 arena_diameter = 30              # Arena diameter (mm)
 perimeter_dist = 1               # Perimeter region distance to walls (mm)
@@ -28,12 +27,14 @@ T = 600                          # Simulation time (sec)
 
 T_starting_stim = 300            # Starting time of stimulus (sec)
 T_interval_stim = 15             # Interval of stimulus (sec)
-T_freezing_stim = 0.46           # Time to start freezing after stimulus (sec) #0.4 #0.5 #0.46
+T_freezing_stim = 0.46           # Time to start freezing after stimulus (sec)
 arena_freezing_factor = 0.05     # Stimulus strength (1+arena_freezing_factor) when a fly is at y = 15
-log_param_a = 0.02               # parameter a #0.048 #0.3 #0.04219259 #0.1 #0.2 #0.15 #0.05 #0.05 #0.04 #0.05 #0.048 #0.02 #0.02
-log_param_b = 0.92               # parameter b #0.873 #0.2 #0.7744190  #0.5 #0.3 #0.35 #0.80 #0.70 #0.70 #0.85 #0.87  #0.85 #0.90
+log_param_a = 0.02
+log_param_b = 1.02 - 2.45 * np.array(log_param_a)
 
-freezing_rate = 0.9              # freezing rate #0.25 #0.4 #0.6 #0.7 #0.8 #0.75 #0.9 #1.0 #0.9
+freezing_rate = 0.9              # freezing rate
+
+social_influence = float(args[2]) # Coefficient of aligning speed with neighboring flies
 
 def minDistAngle(pos, agent_head_directions):
     x, y = pos
@@ -51,7 +52,7 @@ def generate_trajectory(num_steps):
     random_turn = [np.random.normal(mu, sigma, num_agents) * dt for _ in range(num_steps)]
     # initial values
     agent_head_directions[0] = np.random.rand(num_agents) * 2 * np.pi
-    agent_positions[0] = np.random.rand(num_agents, 2) * arena_diameter - arena_diameter / 2
+    agent_positions[0] = np.random.rand(num_agents, 2) * arena_diameter - arena_diameter / 2 
     # iteration of trajectory
     for t in range(num_steps):
         for i in range(num_agents):
@@ -87,6 +88,7 @@ def generate_trajectory(num_steps):
 
             # adjust speed with other flies
             motion_cues_diff = motion_cues[t-1][i] - motion_cues[t-2][i]
+#            agent_speeds[t][i] = (1 - social_influence) * agent_speeds[t][i] + social_influence * motion_cues_diff
 
             if agent_speeds[t][i] < 0:
                 agent_speeds[t][i] = 0
@@ -133,12 +135,14 @@ def update(i):
 num_steps = round(T / dt)
 
 f = lambda x: x ** 3
-
-for iter in range(int(args[1])):
+repn = int(args[1])
+outdir = f"../data/5_simulation/2_approx_parameters/raw/single"
+os.makedirs(outdir, exist_ok=True)
+for iter in range(repn):
     agent_positions_res = generate_trajectory(num_steps)
 
     nd = [np.insert(agent_positions_res[0][i3], 0, [range(num_agents)], axis = 1) for i3 in range(len(agent_positions_res[0]))]
     df = pd.DataFrame([list(l) for l in nd]).stack().apply(pd.Series).reset_index(1, drop=True)
     df.reset_index(inplace=True)
     df.columns = ['frame', 'id', 'pos_x', 'pos_y']
-    df.to_csv(f'../data/single/df_pos_{iter}.tsv', sep='\t', index=False)
+    df.to_csv(f'{outdir}/df_pos_{iter}.tsv', sep='\t', index=False)

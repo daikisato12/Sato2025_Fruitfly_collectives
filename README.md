@@ -1,10 +1,12 @@
-# Sato2024_Fruitfly_collectives
-IN this repository you find codes used in Sato &amp; Takahashi (2024) Neurogenomic variation enhances collective antipredator performance in _Drosophila_.
+# Sato2025_Fruitfly_collectives
+IN this repository you find codes used in Sato &amp; Takahashi (2025) Neurogenomics of synergistic collective freezing in heterogeneous groups of _Drosophila_.
 
 ## Codes
-All the scripts used to analyze data and make figures are stored in `/codes/` directory. The behavioral and genomic dataset stored in `../data/` directory indicated in codes are currently provided via a private link.
+- All the scripts used to analyze data and make figures are stored in `/codes/` directory.
+- The behavioral and genomic datasets analyzed in this study are stored in `/data/` directory.
+- Raw videos and trajectory datasets are stored in [Dryad repository](https://doi.org/10.5061/dryad.ttdz08m60).
 
 ## Tested environments
-- macOS Big Sur version 11.6.4
-- R version 4.3.0
-- Python 3.9.2
+- macOS Sonoma version 14.6.1
+- R version 4.4.2
+- Python 3.10.10

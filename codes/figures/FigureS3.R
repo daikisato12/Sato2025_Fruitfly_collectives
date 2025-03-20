@@ -1,70 +1,82 @@
 #### load packages ####
-library(tidyverse)
-library(arrow)
-library(car)
-library(lmerTest)
-library(ggpmisc)
-library(patchwork)
+targetPackages <- c('tidyverse','arrow','car','lmerTest','ggpmisc','patchwork','ggrepel')
+newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Package"])]
+if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
+for(package in targetPackages) library(package, character.only = T)
 
 #### load dataset ####
-df_s5min_freezing_duration <- read_parquet("../data/1_single_strain/df_s5min_2995_5990_freezing_duration.parquet") %>%
+df_f5min_group_male_seconds_nest_dist_chase_strain_mean <- read_parquet("../data/1_single_strain/parquet/df_f5min_group_male_seconds_nest_dist_chase_3mm_strain_mean.parquet") %>%
   ungroup()
 
-#### analysis ####
-##### LMM #####
-model_freezing_duration <- lmerTest::lmer(freezing_duration ~ strain * sex * n_inds + 
-                                (1|date) + (1|time) + (1|prefix) + (1|place), 
-                              df_s5min_freezing_duration %>%
-                                filter(str_detect(strain ,"DGRP")))
-summary(model_freezing_duration)
-car::Anova(model_freezing_duration)
 
-##### heritability single female #####
-var <- "freezing_duration"
+#### analysis time_chase ####
+var <- "time_chase"
 r <- 20
 
-res_single_female <- anova(lm(get(var) ~ strain, data = df_s5min_freezing_duration %>% 
-                                filter(sex == "Female", n_inds == "Single", str_detect(strain, "DGRP"))))
-sg2_single_female <- (res_single_female$`Mean Sq`[1] - res_single_female$`Mean Sq`[2]) / r
-se2_single_female <- res_single_female$`Mean Sq`[2]
-sg2_single_female / (sg2_single_female + se2_single_female/r)
+##### LMM #####
+model_time_chase <- lmerTest::lmer(get(var) ~ strain + 
+                                     (1|date) + (1|time) + (1|prefix) + (1|place), 
+                                   df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>%
+                                     mutate(date = str_sub(prefix, start=1, end=8),
+                                            time = as.POSIXct(prefix, format = format('%Y%m%d%H%M%S')) %>% format("%H:%M")) %>%
+                                     filter(!str_detect(strain ,"norpA")))
+summary(model_time_chase)
+car::Anova(model_time_chase)
 
-##### heritability group female #####
-res_group_female <- anova(lm(get(var) ~ strain, data = df_s5min_freezing_duration %>% 
-                               filter(sex == "Female", n_inds == "Group", str_detect(strain, "DGRP"))))
-sg2_group_female <- (res_group_female$`Mean Sq`[1] - res_group_female$`Mean Sq`[2]) / r
-se2_group_female <- res_group_female$`Mean Sq`[2]
-sg2_group_female / (sg2_group_female + se2_group_female/r)
 
-##### heritability single male #####
-res_single_male <- anova(lm(get(var) ~ strain, data = df_s5min_freezing_duration %>% 
-                              filter(sex == "Male", n_inds == "Single", str_detect(strain, "DGRP"))))
-sg2_single_male <- (res_single_male$`Mean Sq`[1] - res_single_male$`Mean Sq`[2]) / r
-se2_single_male <- res_single_male$`Mean Sq`[2]
-sg2_single_male / (sg2_single_male + se2_single_male/r)
+##### heritability #####
+res_time_chase <- anova(lm(get(var) ~ strain, data = df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>% 
+                             filter(!str_detect(strain, "norpA"))))
+sg2_time_chase <- (res_time_chase$`Mean Sq`[1] - res_time_chase$`Mean Sq`[2]) / r
+se2_time_chase <- res_time_chase$`Mean Sq`[2]
+sg2_time_chase / (sg2_time_chase + se2_time_chase/r)
 
-##### heritability group male #####
-res_group_male <- anova(lm(get(var) ~ strain, data = df_s5min_freezing_duration %>% 
-                             filter(sex == "Male", n_inds == "Group", str_detect(strain, "DGRP"))))
-sg2_group_male <- (res_group_male$`Mean Sq`[1] - res_group_male$`Mean Sq`[2]) / r
-se2_group_male <- res_group_male$`Mean Sq`[2]
-sg2_group_male / (sg2_group_male + se2_group_male/r)
+
+#### analysis time_chain ####
+var <- "time_chain"
+
+##### LMM #####
+model_time_chain <- lmerTest::lmer(get(var) ~ strain + 
+                                     (1|date) + (1|time) + (1|prefix) + (1|place), 
+                                   df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>%
+                                     mutate(date = str_sub(prefix, start=1, end=8),
+                                            time = as.POSIXct(prefix, format = format('%Y%m%d%H%M%S')) %>% format("%H:%M")) %>%
+                                     filter(!str_detect(strain ,"norpA")))
+summary(model_time_chain)
+car::Anova(model_time_chain)
+
+
+##### heritability #####
+res_time_chain <- anova(lm(get(var) ~ strain, data = df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>% 
+                             filter(!str_detect(strain, "norpA"))))
+sg2_time_chain <- (res_time_chain$`Mean Sq`[1] - res_time_chain$`Mean Sq`[2]) / r
+se2_time_chain <- res_time_chain$`Mean Sq`[2]
+sg2_time_chain / (sg2_time_chain + se2_time_chain/r)
+
 
 
 #### make plot ####
-gig_s5min_freezing_duration_sex <- df_s5min_freezing_duration %>% 
-  filter(strain != "norpA") %>%
-  ggplot(aes(x = reorder(strain, rep(.[.$n_inds=="Single",]$freezing_duration, each=2), na.rm = TRUE), y = freezing_duration, col = n_inds)) +
+##### gg_f5min_chasing_chaining_time #####
+gg_f5min_chasing_chaining_time <- df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>% 
+  pivot_longer(cols = c(time_chase, time_chain), names_to = "var", values_to = "value") %>%
+  filter(!str_detect(strain, "norpA")) %>%
+  # filter(strain != "norpA") %>%
+  # mutate(plot_col = case_when(strain == "DGRP208_norpA" ~ "#8c6c81", #"#A8DADC", 
+  #                             TRUE ~ "black")) %>%
+  mutate(var = case_when(var == "time_chase" ~ "Chasing duration (s)",
+                         TRUE ~ "Chaining duration (s)")) %>%
+  ggplot(aes(x = reorder(strain, value), y = value)) + #, col = plot_col
   stat_summary(fun.data = "mean_se", geom = "errorbar", width = 0) +
   stat_summary(fun.data = "mean_se", geom = "point") +
-  scale_y_continuous(breaks = seq(0, 15, 5), expand = c(0, 0)) +
-  scale_color_manual(values = c("#aaaaa9", "#b3343a")) +
+  scale_y_continuous(breaks = seq(0, 30, 5), expand = c(0, 0)) +
   xlab("Strain") +
-  ylab("Freezing duration (s)") +
-  coord_cartesian(ylim = c(0, 15)) +
-  facet_wrap( ~ sex, nrow = 2, strip.position = "left") +
+  # ylab("Duration (s)") +
+  coord_cartesian(ylim = c(0, 30)) +
+  # scale_color_identity() +
+  facet_wrap( ~ var, nrow = 2, strip.position = "left") +
   theme_bw() +
-  theme(axis.text.x = element_blank(),
+  theme(axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
         legend.background = element_blank(),
         legend.title = element_blank(),
         legend.position = c(0.9,0.65),
@@ -74,96 +86,47 @@ gig_s5min_freezing_duration_sex <- df_s5min_freezing_duration %>%
         strip.background = element_blank(),
         strip.placement = "outside",
         panel.spacing = unit(0.7, "lines"))
-gig_s5min_freezing_duration_sex
+gg_f5min_chasing_chaining_time
 
-###### freezing_duration single vs group ######
-df_s5min_freezing_duration %>%
-  filter(strain != "norpA") %>%
-  group_by(strain, sex, n_inds) %>%
-  dplyr::summarize(freezing_duration = mean(freezing_duration, na.rm = T)) %>%
-  ungroup() %>%
-  pivot_wider(names_from = n_inds, values_from = freezing_duration, names_prefix = "freezing_duration_", names_sep = "_") %>%
-  mutate(plot_col = if_else(freezing_duration_Group / freezing_duration_Single > 1, "over", "under")) %>%
-  group_by(sex, plot_col) %>%
-  summarize(n = n())
-
-gig_s5min_freezing_duration_vs_group <- df_s5min_freezing_duration %>%
-  filter(strain != "norpA") %>%
-  group_by(strain, sex, n_inds) %>%
-  dplyr::summarize(freezing_duration = mean(freezing_duration, na.rm = T)) %>%
-  ungroup() %>%
-  pivot_wider(names_from = n_inds, values_from = freezing_duration, names_prefix = "freezing_duration_", names_sep = "_") %>%
-  mutate(plot_col = if_else(freezing_duration_Group / freezing_duration_Single > 1, "over", "under")) %>%
-  ggplot(aes(x=freezing_duration_Single, y=freezing_duration_Group)) +
-  geom_abline(slope = 1, linetype = "dashed") +
-  stat_smooth(linewidth = 2, color= "grey", method = "lm") +
-  geom_point(aes(col = plot_col, shape = sex), alpha=0.5, size=4) +
-  ggpmisc::stat_poly_eq(formula = y ~ x,
-                        aes(label = paste(
-                          after_stat(rr.label),
-                          after_stat(p.value.label),
-                          sep = "~~~")),
-                        label.x = "left",
-                        label.y = "top",
-                        parse = TRUE, size = 4) +
-  scale_x_continuous(breaks = seq(0, 15, 5), expand = c(0, 0)) +
-  scale_y_continuous(breaks = seq(0, 15, 5), expand = c(0, 0)) +
-  scale_color_manual(values = c("#b3343a", "#aaaaa9")) +
-  coord_cartesian(xlim = c(0, 15), ylim = c(0, 15)) +
-  xlab("Freezing duration (s)\nSingle flies") +
-  ylab("Freezing duration (s)\nGroup flies") +
-  facet_wrap(~ sex, nrow = 1) +
+##### gg_f5min_group_male_chase_chain_cor #####
+# formula <- y ~ poly(x, 2, raw = TRUE)
+formula <- y ~ x
+gg_f5min_group_male_chase_chain_cor <- 
+  df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>% 
+  filter(!str_detect(strain, "norpA")) %>%
+  group_by(strain) %>%
+  summarize(time_chase = mean(time_chase, na.rm = TRUE),
+            time_chain = mean(time_chain, na.rm = TRUE)) %>%
+  ggplot(aes(x = time_chase, y = time_chain, label = strain)) +
+  ggpmisc::stat_poly_line(formula = formula,
+                        color= "grey") +
+  # ggpmisc::stat_poly_eq(aes(label = after_stat(eq.label)), 
+  #                       formula = y ~ x, #poly(x, 2)
+  #                       label.x = "left", label.y = 0.9, 
+  #                       parse = TRUE, size = 2) +
+  ggpmisc::stat_poly_eq(aes(label = paste(after_stat(rr.label),
+                                          "*\", \"*", 
+                                          after_stat(p.value.label))), 
+                        formula = y ~ x, #poly(x, 2)
+                        label.x = "left", label.y = 0.9, 
+                        parse = TRUE, size = 2) +
+  geom_point(shape = 16, alpha=0.5, size = 3) +
+  geom_text_repel(size = 2) +
+  xlab("Chasing duration (sec)") +
+  ylab("Chaining duration (sec)") +
   theme_bw() +
-  theme(legend.position = 'none',
-        strip.background = element_blank(),
-        panel.spacing = unit(0.7, "lines"))
-gig_s5min_freezing_duration_vs_group
-
-###### freezing_duration male vs female ######
-df_s5min_freezing_duration %>%
-  filter(strain != "norpA") %>%
-  group_by(strain, n_inds, sex) %>%
-  dplyr::summarize(freezing_duration = mean(freezing_duration, na.rm=T)) %>%
-  pivot_wider(names_from = sex, values_from = freezing_duration, names_prefix = "freezing_duration_", names_sep = "_") %>%
-  mutate(plot_col = if_else(freezing_duration_Male / freezing_duration_Female < 1, "over", "under")) %>%
-  group_by(n_inds, plot_col) %>%
-  summarize(n = n())
-
-gig_s5min_freezing_duration_vs_sex <- df_s5min_freezing_duration %>%
-  filter(strain != "norpA") %>%
-  group_by(strain, n_inds, sex) %>%
-  dplyr::summarize(freezing_duration = mean(freezing_duration, na.rm=T)) %>%
-  pivot_wider(names_from = sex, values_from = freezing_duration, names_prefix = "freezing_duration_", names_sep = "_") %>%
-  mutate(plot_col = if_else(freezing_duration_Male / freezing_duration_Female < 1, "over", "under")) %>%
-  ggplot(aes(x = freezing_duration_Male, y = freezing_duration_Female)) +
-  geom_abline(slope = 1, linetype = "dashed") +
-  stat_smooth(linewidth = 2, color= "grey", method = "lm") +
-  geom_point(aes(col = plot_col), alpha = 0.5, size = 4, shape = 16) +
-  ggpmisc::stat_poly_eq(formula = y ~ x,
-                        aes(label = paste(
-                          after_stat(rr.label),
-                          after_stat(p.value.label),
-                          sep = "~~~")),
-                        label.x = "left",
-                        label.y = "top",
-                        parse = TRUE, size = 4) +
-  scale_x_continuous(breaks = seq(0, 15, 5), expand = c(0, 0)) +
-  scale_y_continuous(breaks = seq(0, 15, 5), expand = c(0, 0)) +
-  scale_color_manual(values = c("#c17181", "#68aac3")) +
-  coord_cartesian(xlim = c(0, 15), ylim = c(0, 15)) +
-  xlab("Freezing duration (s)\nMale") +
-  ylab("Freezing duration (s)\nFemale") +
-  facet_wrap(~ n_inds, ncol = 2) +
-  theme_bw() +
-  theme(legend.position = 'none',
-        strip.background = element_blank(),
-        panel.spacing = unit(0.7, "lines"))
-gig_s5min_freezing_duration_vs_sex
+  theme(
+    legend.background = element_blank(),
+    legend.title = element_blank(),
+    legend.position = 'none',
+    legend.key = element_blank())
+gg_f5min_group_male_chase_chain_cor
 
 
-gig_s5min_freezing_duration <-
-  gig_s5min_freezing_duration_sex /
-  (gig_s5min_freezing_duration_vs_group | gig_s5min_freezing_duration_vs_sex) #+
-gig_s5min_freezing_duration
+gg_f5min_chasing_chaining <-
+  gg_f5min_chasing_chaining_time +
+  gg_f5min_group_male_chase_chain_cor +
+  plot_layout(ncol = 2, widths = c(1, 0.5), guides = "collect")
+gg_f5min_chasing_chaining
 
-ggsave("../figures/FigureS3.pdf", gig_s5min_freezing_duration, w = 6, h = 6)
+ggsave("../figures/FigureS3.pdf", gg_f5min_chasing_chaining, w = 6, h = 3)

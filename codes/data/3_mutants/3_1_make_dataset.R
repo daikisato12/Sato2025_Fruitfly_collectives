@@ -1,18 +1,10 @@
-#### load libraries ####
-rm(list = ls(all.names = TRUE))
-list.of.packages <- c('tidyverse','data.table','slider','gtools','sf','arrow')
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
-
-library(tidyverse)
-library(data.table) #fread
-library(slider)
-library(gtools)
-library(sf)
-library(arrow)
+#### load packages ####
+targetPackages <- c('tidyverse','data.table','slider','gtools','sf','arrow')
+newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Package"])]
+if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
+for(package in targetPackages) library(package, character.only = T)
 
 #### load functions ####
-
 # function to add nearest neighbor distance for each row (each individual per frame)
 add_nnd <- function(dat){
   dat <- dat %>%
@@ -159,8 +151,10 @@ names(cent_mask_y) <- paste0("no",seq(1,12))
 
 
 #### load dataset and convert to parquet ####
+datadir <- "$DATADIR" # data directory for tsv files
+
 tbl_fread <- 
-  list.files(paste0("/Volumes/Data/projects/drosophila/tracking_data/tracktor/finaldata_diversity/", date, "/"), 
+  list.files(paste0(datadir, "/3_mutants/tsv/"), 
              pattern = "*.tsv", full.names = TRUE, recursive=T) %>% 
   map_df(~fread(.))
 
@@ -215,12 +209,6 @@ dfm_tmp <- tbl_fread %>%
                   id, pos_x, pos_y, travelled_dist_diff, angle_diff_based,
                   vec_norm, angle_x_end, angle_y_end, angle, angle_stim))
 
-# for (filen in unique(dfm_tmp$filename)){
-#   write_parquet(dfm_tmp %>%
-#                   filter(filename == filen), 
-#                 paste0("/Volumes/Data/projects/drosophila/tracking_data/tracktor/finaldata_diversity/parquet/",date, "/", filen, ".parquet"))
-# }
-
 dfm <- dfm_tmp %>%
   group_by(filename, date, prefix, place, strain, sex, age, n_inds, N, id, seconds_total = as.integer(seconds_total*2)/2) %>%
   dplyr::summarize(pos_x = mean(pos_x),
@@ -243,7 +231,7 @@ dfm <- dfm_tmp %>%
   dplyr::select(filename, prefix, place, strain, sex, age, n_inds, N, seconds_total, id, posture, everything()) %>%
   dplyr::select(-c(matches("^X\\d|\\.")))
 
-write_parquet(dfm, "${dataset}/3_mutants/parquet/dfm_0.parquet")
+write_parquet(dfm, paste0(datadir, "/3_mutants/parquet/dfm_0.parquet"))
 
 
 dfm <- add_samplenum_trial(dfm) %>%
@@ -265,22 +253,22 @@ dfm <- add_samplenum_trial(dfm) %>%
 ## data first 5 min
 dfm_f5min <- dfm %>%
   filter(seconds_total < 300)
-write_parquet(dfm_f5min, paste0("${dataset}/3_mutants/parquet/dfm_f5min.parquet"))
-# dfm_f5min <- read_parquet("${dataset}/3_mutants/parquet/dfm_f5min.parquet") %>%
+write_parquet(dfm_f5min, "../data/3_mutants/parquet/dfm_f5min.parquet")
+# dfm_f5min <- read_parquet("../data/3_mutants/parquet/dfm_f5min.parquet") %>%
 #   ungroup()
 
 ## data first 10 min
 dfm_f10min <- dfm %>%
   filter(seconds_total < 600)
-write_parquet(dfm_f10min, paste0("${dataset}/3_mutants/parquet/dfm_f10min.parquet"))
-# dfm_f10min <- read_parquet("${dataset}/3_mutants/parquet/dfm_f10min.parquet") %>%
+write_parquet(dfm_f10min, "../data/3_mutants/parquet/dfm_f10min.parquet")
+# dfm_f10min <- read_parquet("../data/3_mutants/parquet/dfm_f10min.parquet") %>%
 #   ungroup()
 
 ## data middle 5 min
 dfm_s5min <- dfm %>%
   filter(298.5 < seconds_total, seconds_total < 600)
-write_parquet(dfm_s5min, paste0("${dataset}/3_mutants/parquet/dfm_s5min.parquet"))
-# dfm_s5min <- read_parquet("${dataset}/3_mutants/parquet/dfm_s5min.parquet") %>%
+write_parquet(dfm_s5min, "../data/3_mutants/parquet/dfm_s5min.parquet")
+# dfm_s5min <- read_parquet("../data/3_mutants/parquet/dfm_s5min.parquet") %>%
 #   ungroup()
 
 ## add stim info
@@ -303,16 +291,16 @@ dfm_s5min_stim <- dfm_s5min %>%
                                     posture == "stop" & posture_1s == "walk" ~ "sw")) %>%
   filter(seconds_total != 599)
 
-write_parquet(dfm_s5min_stim, paste0("${dataset}/3_mutants/parquet/dfm_s5min_stim.parquet"))
-# dfm_s5min_stim <- read_parquet("${dataset}/3_mutants/parquet/dfm_s5min_stim.parquet") %>%
+write_parquet(dfm_s5min_stim, "../data/3_mutants/parquet/dfm_s5min_stim.parquet")
+# dfm_s5min_stim <- read_parquet("../data/3_mutants/parquet/dfm_s5min_stim.parquet") %>%
 #   ungroup()
 
 ## s5min (from 299.5-599) for foraging success
 dfm_s5min_2995_5990 <- dfm %>%
   filter(299 < seconds_total, seconds_total < 599.5)
 
-write_parquet(dfm_s5min_2995_5990, "${dataset}/3_mutants/parquet/dfm_s5min_2995_5990.parquet")
-# dfm_s5min_2995_5990 <- read_parquet("${dataset}/3_mutants/parquet/dfm_s5min_2995_5990.parquet") %>%
+write_parquet(dfm_s5min_2995_5990, "../data/3_mutants/parquet/dfm_s5min_2995_5990.parquet")
+# dfm_s5min_2995_5990 <- read_parquet("../data/3_mutants/parquet/dfm_s5min_2995_5990.parquet") %>%
 #   ungroup()
 
 
@@ -392,6 +380,3 @@ dfm_motion_cue_exit_coeff_trial2 <-
   dplyr::mutate(data = map2(data, 20, calc_glm_coeff_500trial)) %>%
   unnest(data)
 write_parquet(dfm_motion_cue_exit_coeff_trial2, "../data/3_mutants/tracked_data/dfm_motion_cue_exit_coeff_trial2.parquet")
-# dfm_motion_cue_exit_coeff_trial2 <- read_parquet("../data/3_mutants/tracked_data/dfm_motion_cue_exit_coeff_trial2.parquet") %>%
-#   ungroup()
-

@@ -1,24 +1,18 @@
 #### load packages ####
-library(tidyverse)
-library(arrow)
-# library(car)
-# library(lmerTest)
-# library(ggsci)
-# library(ggpmisc)
-library(patchwork)
+targetPackages <- c('tidyverse','arrow','patchwork')
+newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Package"])]
+if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
+for(package in targetPackages) library(package, character.only = T)
 
 #### Figure 1c ####
 ##### load dataset #####
-df_f5min_speed <- read_parquet("../data/1_single_strain/df_f5min_speed.parquet") %>%
+df_f10min_speed <- read_parquet("../data/1_single_strain/parquet/df_f10min_speed.parquet") %>%
   ungroup()
 
-df_f10min_speed <- read_parquet("../data/1_single_strain/df_f10min_speed.parquet") %>%
+df_f5min_speed_ave <- read_parquet("../data/1_single_strain/parquet/df_f5min_speed_ave.parquet") %>%
   ungroup()
 
-df_f5min_speed_ave <- read_parquet("../data/1_single_strain/df_f5min_speed_ave.parquet") %>%
-  ungroup()
-
-df_s5min_2995_5990_speed <- read_parquet("../data/1_single_strain/df_s5min_2995_5990_speed.parquet") %>%
+df_s5min_2995_5990_speed <- read_parquet("../data/1_single_strain/parquet/df_s5min_2995_5990_speed.parquet") %>%
   ungroup()
 
 df_s5min_2995_5990_speed_sg_normbyf5minave_strain <-
@@ -52,26 +46,8 @@ g_f10min_sg_speed_normbyf5minave_allmean <-
              col = n_inds,
              group = n_inds)) +
   geom_line() +
-  geom_vline(xintercept=300, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=315, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=330, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=345, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=360, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=375, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=390, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=405, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=420, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=435, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=450, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=465, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=480, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=495, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=510, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=525, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=540, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=555, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=570, linetype="dotted", alpha=.6, linewidth=.4) +
-  geom_vline(xintercept=585, linetype="dotted", alpha=.6, linewidth=.4) +  scale_color_viridis_d(direction = -1) +
+  geom_vline(xintercept=(300+15*seq(0,20)), linetype="dotted", alpha=.6, linewidth=.4) + 
+  scale_color_viridis_d(direction = -1) +
   xlab("Time (min)") +
   ylab("Moving speed relative to \n the average during the initial 5 min") +
   scale_x_continuous(breaks = seq(0, 600, 60), labels = seq(0, 10, 1)) +
@@ -123,7 +99,7 @@ ggsave("../figures/Figure1c.pdf", g_fig_sg_speed, w=6, h=3.5)
 
 #### Figure 1d ####
 ##### load dataset #####
-df_s5min_stim_vis <- read_parquet("../data/1_single_strain/df_s5min_stim_vis_0.5.parquet") %>%
+df_s5min_stim_vis <- read_parquet("../data/1_single_strain/parquet/df_s5min_stim_vis_0.5.parquet") %>%
   ungroup() 
 
 df_s5min_stim_freez_vis <- df_s5min_stim_vis %>%

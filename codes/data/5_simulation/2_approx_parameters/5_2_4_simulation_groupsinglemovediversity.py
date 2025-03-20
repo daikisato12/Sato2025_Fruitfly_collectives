@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-# created by Daiki Sato and updated on 2023/12/8
-# python3 5_1_2_simulation_group_socialcontagion.py 200
+# created by Daiki Sato and updated on 2025/3/20
+# python3 5_2_4_simulation_groupsinglemovediversity.py 10 0
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 import pandas as pd
 import math
-import csv
 import sys
+import os
 
 args = sys.argv
 
 num_agents = 6                   # Number of flies
-social_influence =  0.1          # Coefficient of aligning speed with neighboring flies
 agent_size = 1                   # agent size (mm)
 arena_diameter = 30              # Arena diameter (mm)
 perimeter_dist = 1               # Perimeter region distance to walls (mm)
@@ -28,12 +27,14 @@ T = 600                          # Simulation time (sec)
 
 T_starting_stim = 300            # Starting time of stimulus (sec)
 T_interval_stim = 15             # Interval of stimulus (sec)
-T_freezing_stim = 0.46           # Time to start freezing after stimulus (sec) #0.4 #0.5 #0.46
+T_freezing_stim = 0.46           # Time to start freezing after stimulus (sec)
 arena_freezing_factor = 0.05     # Stimulus strength (1+arena_freezing_factor) when a fly is at y = 15
-log_param_a = 0.02               # parameter a #0.048 #0.3 #0.04219259 #0.1 #0.2 #0.15 #0.05 #0.05 #0.04 #0.05 #0.048 #0.02 #0.02
-log_param_b = 0.92               # parameter b #0.873 #0.2 #0.7744190  #0.5 #0.3 #0.35 #0.80 #0.70 #0.70 #0.85 #0.87  #0.85 #0.90
+log_param_a = [0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]  
+log_param_b = 1.02 - 2.45 * np.array(log_param_a)
 
-freezing_rate = 0.9              # freezing rate #0.25 #0.4 #0.6 #0.7 #0.8 #0.75 #0.9 #1.0 #0.9
+freezing_rate = 0.9              # freezing rate
+
+social_influence = float(args[3]) # Coefficient of aligning speed with neighboring flies
 
 def minDistAngle(pos, agent_head_directions):
     x, y = pos
@@ -41,7 +42,7 @@ def minDistAngle(pos, agent_head_directions):
     angle_wall = (agent_head_directions - math.atan2(y, x) + np.pi) % (2 * np.pi) - np.pi
     return dist_wall, angle_wall
 
-def generate_trajectory(num_steps):
+def generate_trajectory(num_steps, param1_a, param1_b, param2_a, param2_b):
     # store arrays
     agent_positions = [np.zeros((num_agents, 2)) for _ in range(num_steps)]
     agent_velocities = [np.zeros((num_agents, 2)) for _ in range(num_steps)]
@@ -51,7 +52,7 @@ def generate_trajectory(num_steps):
     random_turn = [np.random.normal(mu, sigma, num_agents) * dt for _ in range(num_steps)]
     # initial values
     agent_head_directions[0] = np.random.rand(num_agents) * 2 * np.pi
-    agent_positions[0] = np.random.rand(num_agents, 2) * arena_diameter - arena_diameter / 2
+    agent_positions[0] = np.random.rand(num_agents, 2) * arena_diameter - arena_diameter / 2 
     # iteration of trajectory
     for t in range(num_steps):
         for i in range(num_agents):
@@ -81,13 +82,16 @@ def generate_trajectory(num_steps):
                 else:
                     t_recent_stim = int((int((t * dt - T_starting_stim) / T_interval_stim) * T_interval_stim + T_starting_stim) / dt + T_freezing_stim / dt) 
                     if agent_speeds[t_recent_stim][i] == 0:
-                        recovery_factor = log_param_a * math.log((t * dt - T_starting_stim - T_freezing_stim) % T_interval_stim) + log_param_b
+                        if i < 3:
+                            recovery_factor = param1_a * math.log((t * dt - T_starting_stim - T_freezing_stim) % T_interval_stim) + param1_b
+                        else:
+                            recovery_factor = param2_a * math.log((t * dt - T_starting_stim - T_freezing_stim) % T_interval_stim) + param2_b
                         if np.random.uniform(0, 1) > recovery_factor:
                             agent_speeds[t][i] = 0
 
             # adjust speed with other flies
             motion_cues_diff = motion_cues[t-1][i] - motion_cues[t-2][i]
-            agent_speeds[t][i] = (1 - social_influence) * agent_speeds[t][i] + social_influence * motion_cues_diff
+#            agent_speeds[t][i] = (1 - social_influence) * agent_speeds[t][i] + social_influence * motion_cues_diff
 
             if agent_speeds[t][i] < 0:
                 agent_speeds[t][i] = 0
@@ -110,7 +114,7 @@ def generate_trajectory(num_steps):
             if t < num_steps-1:
                 agent_head_directions[t+1][i] = (agent_head_directions[t][i] + turn_angle) % (2 * np.pi) # turn, 
                 agent_positions[t+1][i] = agent_positions[t][i] + agent_velocities[t][i] * dt
-            print(iter, i, t, (t * dt - T_starting_stim), (t * dt - T_starting_stim) % T_interval_stim, agent_speeds[t][i], motion_cues_diff)
+            print(strain1_index, strain2_index, iter, i, t, (t * dt - T_starting_stim), (t * dt - T_starting_stim) % T_interval_stim, agent_speeds[t][i], motion_cues_diff)
 
     return agent_positions, agent_velocities, agent_speeds, agent_head_directions
 
@@ -132,14 +136,24 @@ def update(i):
 
 
 num_steps = round(T / dt)
-
+num_index = len(log_param_a) #* len(log_param_b) 
 f = lambda x: x ** 3
-
-for iter in range(int(args[1])):
-    agent_positions_res = generate_trajectory(num_steps)
-
-    nd = [np.insert(agent_positions_res[0][i3], 0, [range(num_agents)], axis = 1) for i3 in range(len(agent_positions_res[0]))]
-    df = pd.DataFrame([list(l) for l in nd]).stack().apply(pd.Series).reset_index(1, drop=True)
-    df.reset_index(inplace=True)
-    df.columns = ['frame', 'id', 'pos_x', 'pos_y']
-    df.to_csv(f'../data/group_socialcontagion/df_pos_{iter}.tsv', sep='\t', index=False)
+repn = int(args[1])
+outdir = f"../data/5_simulation/2_approx_parameters/raw/groupsinglemovediversity"
+os.makedirs(outdir, exist_ok=True)
+for strain1_index in range(num_index):
+    param1_a = log_param_a[strain1_index] #int(strain1_index/len(log_param_a))
+    param1_b = log_param_b[strain1_index] #int(strain1_index%len(log_param_b))
+    for strain2_index in range(strain1_index, num_index):
+        param2_a = log_param_a[strain2_index] #int(strain2_index/len(log_param_a))
+        param2_b = log_param_b[strain2_index] #int(strain2_index%len(log_param_b))
+        for iter in range(repn):
+            agent_positions_res = generate_trajectory(num_steps, param1_a, param1_b, param2_a, param2_b)
+            nd = [np.insert(agent_positions_res[0][i3], 0, [range(num_agents)], axis = 1) for i3 in range(len(agent_positions_res[0]))]
+            df = pd.DataFrame([list(l) for l in nd]).stack().apply(pd.Series).reset_index(1, drop=True)
+            df.reset_index(inplace=True)
+            df.columns = ['frame', 'id', 'pos_x', 'pos_y']
+            df['strain1'] = f'strain{strain1_index}'
+            df['strain2'] = f'strain{strain2_index}'
+            df['rep'] = iter
+            df.to_csv(f'{outdir}/df_pos_{strain1_index}_{strain2_index}_{iter}.tsv', sep='\t', index=False)

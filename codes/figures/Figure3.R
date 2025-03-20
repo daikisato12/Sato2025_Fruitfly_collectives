@@ -1,163 +1,12 @@
 #### load packages ####
-library(tidyverse)
-library(ggpubr)
-library(arrow)
-library(lmerTest)
-library(patchwork)
+targetPackages <- c('tidyverse','arrow','patchwork','ggpubr','gg.layers')
+newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Package"])]
+if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
+for(package in targetPackages) library(package, character.only = T)
+# install.packages("remotes")
+# remotes::install_github("rpkgs/gg.layers")
 
-#### load functions ####
-glm_exp <- function(dat, gene){
-
-  tryCatch({
-    dat_tmp <- dat %>% 
-      group_by(genotype2) %>%
-      dplyr::summarize(n = n())
-    if(length(unique(dat$genotype2)) > 1 & length(unique(dat %>% pull(get(gene)))) > 1){
-      if(nrow(dat_tmp[dat_tmp$n > 2,]) > 1){
-        dat_tmp2 <- dat %>% 
-          group_by(rep) %>%
-          dplyr::summarize(n = n())
-        if(nrow(dat_tmp2[dat_tmp2$n > 2,]) > 1){
-          myformula <- as.formula(paste0(gene, " ~ genotype2 + (1|genotype) + (1|rep)"))
-          p.val <- lme4::glmer(myformula,
-                         data = dat,
-                         family = "Gamma") %>%
-            car::Anova() %>%
-            pull(`Pr(>Chisq)`)
-          method <- "glmer"
-        }else{
-          myformula <- as.formula(paste0(gene, " ~ genotype2 + (1|genotype)"))
-          p.val <- lme4::glmer(myformula,
-                         data = dat,
-                         family = "Gamma") %>%
-            car::Anova() %>%
-            pull(`Pr(>Chisq)`)
-          method <- "glmer"
-        }
-      }else{
-        myformula <- as.formula(paste0(gene, " ~ genotype2"))
-        p.val <- glm(myformula,
-                     data = dat,
-                     family = "Gamma") %>%
-          car::Anova() %>%
-          pull(`Pr(>Chisq)`)
-        method <- "glm"
-      }
-    }else{
-      p.val <- NA_real_
-      method = NA_character_
-    }
-  }, 
-  error = function(e) {
-    message(e)           
-    p.val <- NA_real_
-    method = NA_character_
-  })
-  dat2 <- dat %>%
-    mutate(pval = p.val,
-           method = method)
-  return(dat2)
-}
-
-
-makeStars <- function(x){
-  stars <- c("****", "***", "**", "*", NA_character_)
-  vec <- c(0, 0.0001, 0.001, 0.01, 0.05, 1)
-  i <- findInterval(x, vec)
-  stars[i]
-}
-
-#### Figure 3a ####
-##### load dataset #####
-df_early.ptp99a <- read.table("../data/4_scRNAseq/df_early_ptp99a.tsv", header = TRUE)
-df_main.ptp99a <- read.table("../data/4_scRNAseq/df_main_ptp99a.tsv", header = TRUE)
-
-df_integrated.ptp99A <-
-  df_main.ptp99a %>%
-  mutate(dataset = "main") %>%
-  bind_rows(df_early.ptp99a %>%
-              mutate(dataset = "early")) %>%
-  ungroup() %>%
-  group_nest(dataset, type, time) %>%
-  mutate(data = map2(data, "ptp99a", glm_exp)) %>% 
-  unnest(cols = c(data)) %>%
-  mutate(genotype = case_when(str_detect(genotype, "_") ~ paste0("DGRP", parse_number(genotype)),
-                              TRUE ~ genotype)) %>%
-  transform(genotype = factor(genotype, levels = unique(.$genotype) %>% gtools::mixedsort()))
-
-##### make plot #####
-# g_early_ptp99a_normexp_tsne <- ggplot(df_integrated.ptp99A %>%
-#                                         filter(dataset == "early") %>%
-#                                         mutate(ptp99a = log(ptp99a)), 
-#                                       aes(x = tSNE_1, y = tSNE_2, col = ptp99a)) +
-#   geom_point(size = .5, alpha = .5, shape = 16) +
-#   scale_color_gradientn(colours = pals::ocean.amp(100), guide = "colourbar") +
-#   theme_bw() +
-#   theme(legend.position = "none")
-# ggsave("../figures/Figure3a1.png", g_early_ptp99a_normexp_tsne, w = 2.5, h = 3)
-
-g_main_ptp99a_normexp_tsne <- ggplot(df_integrated.ptp99A %>%
-                                       filter(dataset == "main") %>%
-                                       mutate(ptp99a = log(ptp99a)), 
-                                     aes(x = tSNE_1, y = tSNE_2, col = ptp99a)) +
-  geom_point(size = .5, alpha = .5, shape = 16) +
-  scale_color_gradientn(colours = pals::ocean.amp(100), guide = "colourbar") +
-  theme_bw() +
-  theme(legend.position = "none")
-ggsave("../figures/Figure3a.png", g_main_ptp99a_normexp_tsne, w = 2.5, h = 3)
-
-
-#### Figure 3b ####
-##### load dataset #####
-df_integrated.ptp99A_L <-
-  df_integrated.ptp99A %>%
-  filter(type %in% c("L1", "L2", "L3", "L4", "L5")) %>%
-  mutate(ptp99a = log(ptp99a), #exprssion data analyzed by GLMM was already expr+1
-         genotype2 = factor(genotype2, levels = c("T/T", "C/T"))) %>%
-  group_by(dataset, type, time, genotype2) %>%
-  summarize(mean = mean(ptp99a, na.rm = TRUE),
-            sd = sd(ptp99a, na.rm = TRUE),
-            n = n(),
-            se = sd / sqrt(n),
-            pval = mean(pval, na.rm = TRUE)) %>%
-  mutate(star = makeStars(pval))
-
-##### make plot #####
-g_main_normexp_ptp99a_L_meanse <- ggplot(df_integrated.ptp99A_L %>%
-                                           filter(dataset == "main") %>%
-                                           mutate(time = parse_number(time) %>% as.factor()),
-                                         aes(x = time, y = mean, group = genotype2)) +
-  geom_path(aes(color = genotype2), position = position_dodge(0.3)) +
-  geom_point(aes(color = genotype2), shape = 16, size = 2, position = position_dodge(0.3)) +
-  geom_errorbar(aes(ymax = mean + sd, ymin = mean - sd, color = genotype2), width = 0, position = position_dodge(0.3)) + 
-  geom_text(aes(x = time,  y = 4.4, label = star), check_overlap = TRUE) +
-  geom_text(x = 0.8, y = 4.6, label = "Error bar: ±SD", size = 2, hjust = 0,
-            data = df_main.ptp99a %>%
-              filter(type %in% c("L1")) %>%
-              group_by(type, time, genotype2) %>%
-              dplyr::summarize(mean = mean(ptp99a, na.rm = TRUE)),
-            check_overlap = TRUE) +
-  xlab("Time after pupal formation (h)") +
-  ylab("Log(expr+1)") +
-  scale_color_manual(values = c("#B8A3BA", "#401336")) +
-  scale_alpha_manual(values = c(0, 0.01)) +
-  coord_cartesian(ylim = c(0, 5)) +
-  facet_grid(type ~ ., scales = "free_x", space = "free") +
-  theme_bw() +
-  theme(legend.title = element_blank(),
-        legend.position = c(0.5, 0.98),
-        legend.text = element_text(size = 6),
-        legend.key.size = unit(0.3, "cm"),
-        legend.key = element_blank(),
-        legend.background = element_blank(),
-        legend.direction = "horizontal",
-        strip.background = element_blank())#,
-g_main_normexp_ptp99a_L_meanse
-
-ggsave("../figures/Figure3b.pdf", g_main_normexp_ptp99a_L_meanse, w = 2.5, h = 4, limitsize = FALSE)
-
-
-#### Figure 3c ####
+#### Figure 3 ####
 ##### load dataset #####
 dfm_s5min_2995_5990_freezing_duration <- read_parquet("../data/3_mutants/dfm_s5min_2995_5990_freezing_duration.parquet") %>%
   ungroup()
@@ -165,10 +14,40 @@ dfm_s5min_2995_5990_freezing_duration <- read_parquet("../data/3_mutants/dfm_s5m
 dfm_motion_cue_exit_coeff_trial2 <- read_parquet("../data/3_mutants/dfm_motion_cue_exit_coeff_trial2.parquet") %>%
   ungroup()
 
+##### stat #####
+stats::wilcox.test(freezing_duration ~ strain, 
+                   data = dfm_s5min_2995_5990_freezing_duration %>%
+                     filter(strain %in% c("IMPTNT_R9B08", "TNT_R9B08"),
+                            sex == "Female", n_inds == "Group"))
+stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
+                   data = dfm_motion_cue_exit_coeff_trial2 %>%
+                     filter(strain %in% c("IMPTNT_R9B08", "TNT_R9B08"),
+                            sex == "Female"))
+
+# stats::wilcox.test(freezing_duration ~ strain, 
+#                    data = dfm_s5min_2995_5990_freezing_duration %>%
+#                      filter(strain %in% c("Ptp99ARNAi_NA", "Ptp99ARNAi_R9B08"),
+#                             sex == "Female", n_inds == "Group"))
+stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
+                   data = dfm_motion_cue_exit_coeff_trial2 %>%
+                     filter(strain %in% c("NA_R9B08", "Ptp99ARNAi_R9B08"),
+                            sex == "Female"))
+stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
+                   data = dfm_motion_cue_exit_coeff_trial2 %>%
+                     filter(strain %in% c("Ptp99ARNAi_NA", "Ptp99ARNAi_R9B08"),
+                            sex == "Female"))
+
+# stats::wilcox.test(freezing_duration ~ strain, 
+#                    data = dfm_s5min_2995_5990_freezing_duration %>%
+#                      filter(strain %in% c("IMPTNT_Ptp99A", "TNT_Ptp99A"),
+#                             sex == "Female", n_inds == "Group"))
+stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
+                   data = dfm_motion_cue_exit_coeff_trial2 %>%
+                     filter(strain %in% c("IMPTNT_Ptp99A", "TNT_Ptp99A"),
+                            sex == "Female"))
 
 
-
-##### make plot #####
+##### Figure 3a #####
 ###### freezing duration Ptp99ARNAi_R9B08 ######
 my_comparisons_Ptp99ARNAi_R9B08 <- list( c("NA_R9B08", "Ptp99ARNAi_R9B08"), c("Ptp99ARNAi_R9B08", "Ptp99ARNAi_NA") )
 g_freezing_Ptp99ARNAi_R9B08 <- 
@@ -188,6 +67,7 @@ g_freezing_Ptp99ARNAi_R9B08 <-
   facet_grid(n_inds ~ .) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(color = "black"),
         axis.title.x = element_blank(),
         legend.position = "none",
         strip.background = element_blank())
@@ -213,6 +93,7 @@ g_freezing_TNT_Ptp99A <-
   facet_grid(n_inds ~ .) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(color = "black"),
         axis.title.x = element_blank(),
         legend.position = "none",
         strip.background = element_blank())
@@ -237,13 +118,14 @@ g_freezing_TNT_R9B08 <- ggplot(dfm_s5min_2995_5990_freezing_duration %>%
   facet_grid(n_inds ~ .) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(color = "black"),
         axis.title.x = element_blank(),
         legend.position = "none",
         strip.background = element_blank())
 
 g_freezing_TNT_R9B08
 
-
+##### Figure 3b #####
 ###### visual responsiveness Ptp99ARNAi_R9B08 ######
 dfm_plot <- 
   dfm_motion_cue_exit_coeff_trial2 %>%
@@ -264,6 +146,7 @@ g_visual_responsiveness_Ptp99ARNAi_R9B08 <-
   ylab("Visual responsiveness") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(color = "black"),
         axis.title.x = element_blank(),
         legend.position = "none")
 
@@ -290,6 +173,7 @@ g_visual_responsiveness_TNT_Ptp99A <-
   ylab("Visual responsiveness") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(color = "black"),
         axis.title.x = element_blank(),
         legend.position = "none")
 
@@ -315,17 +199,18 @@ g_visual_responsiveness_TNT_R9B08 <- ggplot(dfm_plot %>%
   ylab("Visual responsiveness") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(color = "black"),
         axis.title.x = element_blank(),
         legend.position = "none")
 
 g_visual_responsiveness_TNT_R9B08
 
 
-g3c <- 
+g3ab <- 
   g_freezing_TNT_R9B08 + g_freezing_TNT_Ptp99A + g_freezing_Ptp99ARNAi_R9B08 +
   g_visual_responsiveness_TNT_R9B08 + g_visual_responsiveness_TNT_Ptp99A + g_visual_responsiveness_Ptp99ARNAi_R9B08 +
   plot_layout(nrow = 2, ncol = 3, widths = c(0.66, 0.66, 1), heights = c(1.5, 1))
-g3c
-ggsave("../figures/Figure3c.pdf", g3c, w = 6, h = 6)
+g3ab
+ggsave("../figures/Figure3ab.pdf", g3ab, w = 6, h = 6)
 
 
