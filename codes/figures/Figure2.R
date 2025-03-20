@@ -197,23 +197,8 @@ g_motion_cue_metal
 ggsave("../figures/Figure2b2.pdf", 
        g_motion_cue_metal, width = 5.5, height = 4.5)
 
-
-#### Figure 2d ####
+#### Figure 2c ####
 ##### load dataset #####
-df_pheno_motion_cue <- read.table("../data/1_single_strain/gwas/pheno/df_out_motion_cue_exit_intercept_female_GREML.txt") %>%
-  dplyr::select(!V1) %>%
-  magrittr::set_colnames(c("strain", "value")) %>%
-  dplyr::mutate(sex = "Female") %>%
-  bind_rows(read.table("../data/1_single_strain/gwas/pheno/df_out_motion_cue_exit_intercept_male_GREML.txt") %>%
-              dplyr::select(!V1) %>%
-              magrittr::set_colnames(c("strain", "value")) %>%
-              dplyr::mutate(sex = "Male"))
-
-df_geno_ptp99a <- read.table("../data/1_single_strain/gwas/result/tophits/candidates/genotype/3R_25292746_SNP.txt", header = TRUE)
-
-df_motion_cue_ptp99a <- inner_join(df_pheno_motion_cue,
-                                   df_geno_ptp99a)
-
 gene_motion_cue_exit_female <- 
   read.table("../data/1_single_strain/gwas/result/tophits/tophits_motion_cue_exit_intercept_scaleT_female_geneid.txt") %>%
   pull(V1)
@@ -238,6 +223,23 @@ gene_shared_name <- biomaRt::getBM(attributes = c("external_gene_name",
 
 
 gene_shared_name$gene_name %>% gtools::mixedsort()
+
+
+#### Figure 2d ####
+##### load dataset #####
+df_pheno_motion_cue <- read.table("../data/1_single_strain/gwas/pheno/df_out_motion_cue_exit_intercept_female_scaled_GREML.txt") %>%
+  dplyr::select(!V1) %>%
+  magrittr::set_colnames(c("strain", "value")) %>%
+  dplyr::mutate(sex = "Female") %>%
+  bind_rows(read.table("../data/1_single_strain/gwas/pheno/df_out_motion_cue_exit_intercept_male_scaled_GREML.txt") %>%
+              dplyr::select(!V1) %>%
+              magrittr::set_colnames(c("strain", "value")) %>%
+              dplyr::mutate(sex = "Male"))
+
+df_geno_ptp99a <- read.table("../data/1_single_strain/gwas/result/tophits/candidates/genotype/3R_25292746_SNP.txt", header = TRUE)
+
+df_motion_cue_ptp99a <- inner_join(df_pheno_motion_cue,
+                                   df_geno_ptp99a)
 
 
 ##### stat #####

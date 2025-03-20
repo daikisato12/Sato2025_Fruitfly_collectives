@@ -126,10 +126,11 @@ g_freezing_TNT_R9B08 <- ggplot(dfm_s5min_2995_5990_freezing_duration %>%
 g_freezing_TNT_R9B08
 
 ##### Figure 3b #####
-###### visual responsiveness Ptp99ARNAi_R9B08 ######
 dfm_plot <- 
   dfm_motion_cue_exit_coeff_trial2 %>%
   pivot_longer(cols = contains("motion_cue"), names_to = "var", values_to = "value")
+
+###### visual responsiveness Ptp99ARNAi_R9B08 ######
 my_comparisons_Ptp99ARNAi_R9B08 <- list( c("NA_R9B08", "Ptp99ARNAi_R9B08"), c("Ptp99ARNAi_R9B08", "Ptp99ARNAi_NA") )
 g_visual_responsiveness_Ptp99ARNAi_R9B08 <- 
   ggplot(dfm_plot %>%
@@ -154,9 +155,6 @@ g_visual_responsiveness_Ptp99ARNAi_R9B08
 
 
 ###### visual responsiveness TNT_Ptp99A ######
-dfm_plot <- 
-  dfm_motion_cue_exit_coeff_trial2 %>%
-  pivot_longer(cols = contains("motion_cue"), names_to = "var", values_to = "value")
 my_comparisons_TNT_Ptp99A <- list( c("IMPTNT_Ptp99A", "TNT_Ptp99A") )
 g_visual_responsiveness_TNT_Ptp99A <- 
   ggplot(dfm_plot %>%
@@ -181,15 +179,13 @@ g_visual_responsiveness_TNT_Ptp99A
 
 
 ###### visual responsiveness TNT_R9B08 ######
-dfm_plot <- 
-  dfm_motion_cue_exit_coeff_trial2 %>%
-  pivot_longer(cols = contains("motion_cue"), names_to = "var", values_to = "value")
 my_comparisons_TNT_R9B08 <- list( c("IMPTNT_R9B08", "TNT_R9B08") )
-g_visual_responsiveness_TNT_R9B08 <- ggplot(dfm_plot %>%
-                         filter(strain %in% c("IMPTNT_R9B08", "TNT_R9B08"),
-                                sex == "Female", var == "motion_cue_exit_intercept") %>%
-                         transform(strain = factor(strain, levels = c("IMPTNT_R9B08", "TNT_R9B08"))),
-                       aes(x = strain, y = value, color = strain)) +
+g_visual_responsiveness_TNT_R9B08 <- 
+  ggplot(dfm_plot %>%
+           filter(strain %in% c("IMPTNT_R9B08", "TNT_R9B08"),
+                  sex == "Female", var == "motion_cue_exit_intercept") %>%
+           transform(strain = factor(strain, levels = c("IMPTNT_R9B08", "TNT_R9B08"))),
+         aes(x = strain, y = value, color = strain)) +
   gg.layers::geom_boxplot2(outlier.shape = NA, width.errorbar = 0) +
   geom_jitter(shape = 16, alpha=0.2, size = 2, width = 0.3, height = 0) +
   ggpubr::stat_compare_means(comparisons = my_comparisons_TNT_R9B08) +
