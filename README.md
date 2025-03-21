@@ -1,5 +1,5 @@
 # Sato2025_Fruitfly_collectives
-IN this repository you find codes used in Sato &amp; Takahashi (2025) Neurogenomics of synergistic collective freezing in heterogeneous groups of _Drosophila_.
+IN this repository you find codes used in Sato &amp; Takahashi (2025) Neurogenomic and behavioral principles of synergistic collective freezing in _Drosophila_.
 
 ## Codes
 - All the scripts used to analyze data and make figures are stored in `/codes/` directory.
