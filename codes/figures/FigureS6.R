@@ -54,7 +54,7 @@ ggsave("../figures/FigureS6a.pdf", g_parameter, w = 3, h = 3)
 #### Figure S6b ####
 ##### load dataset #####
 ###### single ######
-df_single_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/parquet/df_single_pos.parquet")
+df_single_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/df_single_pos.parquet")
 
 df_single_pos3_speed_beforestimave <- df_single_pos2 %>%
   filter(seconds_total < 300) %>%
@@ -81,7 +81,7 @@ df_single_pos3_speed_normbystimminus05ave <- df_single_pos2 %>%
 
 
 ###### group w/o interaction ######
-df_group_singlemove_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/parquet/df_group_singlemove_pos.parquet")
+df_group_singlemove_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/df_group_singlemove_pos.parquet")
 
 df_group_singlemove_pos3_speed_beforestimave <- df_group_singlemove_pos2 %>%
   filter(seconds_total < 300) %>%
@@ -108,7 +108,7 @@ df_group_singlemove_pos3_speed_normbystimminus05ave <- df_group_singlemove_pos2 
 
 
 ###### group w interaction ######
-df_group_socialcontagion_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/parquet/df_group_socialcontagion_pos.parquet")
+df_group_socialcontagion_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/df_group_socialcontagion_pos.parquet")
 
 df_group_socialcontagion_pos3_speed_beforestimave <- df_group_socialcontagion_pos2 %>%
   filter(seconds_total < 300) %>%
@@ -261,11 +261,18 @@ g_merge_single_group_simulation <-
 g_merge_single_group_simulation
 ggsave("../figures/FigureS6b.pdf", g_merge_single_group_simulation, w = 8, h = 3)
 
+##### write Supplementary Data 9 #####
+df_SuppData9_FigS6b <-
+  df_sim_singlemove_s5min_2995_5990_speed_sg_normbyf5minave_allmean_pairedwilcox_res %>% 
+  filter(str_detect(group2, "Group"))
+
+openxlsx::write.xlsx(df_SuppData9_FigS6b, "../figures/SuppData9_FigS6b.xlsx")
+
 
 #### Figure S6c1 ####
 ##### load dataset #####
 ###### group_singlemove_mix ######
-df_group_singlemove_diversity_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/parquet/df_group_singlemove_diversity_pos.parquet")
+df_group_singlemove_diversity_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/df_group_singlemove_diversity_pos.parquet")
 
 df_group_singlemove_diversity_pos3_speed_beforestimave <- 
   df_group_singlemove_diversity_pos2 %>%
@@ -400,7 +407,7 @@ dfd_group_singlemove_diversity_mean2_performance_rel <-
   dplyr::mutate(rel_performance = performance / mean_perf)
 
 ##### stat #####
-df_for_stat <- dfd_group_singlemove_diversity_mean2_performance_rel %>% 
+df_figS6c1_stat <- dfd_group_singlemove_diversity_mean2_performance_rel %>% 
   rstatix::wilcox_test(rel_performance ~ type, 
                        paired = TRUE, detailed = TRUE)
 
@@ -427,7 +434,7 @@ g_mix_group_singlemove_diversity_performance
 #### Figure S6c2 ####
 ##### load dataset #####
 ###### group_socialcontagion_mix ######
-df_group_socialcontagion_diversity_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/parquet/df_group_socialcontagion_diversity_pos.parquet")
+df_group_socialcontagion_diversity_pos2 <- read_parquet("../data/5_simulation/2_approx_parameters/df_group_socialcontagion_diversity_pos.parquet")
 
 df_group_socialcontagion_diversity_pos3_speed_beforestimave <- 
   df_group_socialcontagion_diversity_pos2 %>%
@@ -563,7 +570,7 @@ dfd_group_socialcontagion_diversity_mean2_performance_rel <-
   dplyr::mutate(rel_performance = performance / mean_perf)
 
 ##### stat #####
-df_for_stat <- dfd_group_socialcontagion_diversity_mean2_performance_rel %>% 
+df_figS6c2_stat <- dfd_group_socialcontagion_diversity_mean2_performance_rel %>% 
   rstatix::wilcox_test(rel_performance ~ type, 
                        paired = TRUE, detailed = TRUE)
 

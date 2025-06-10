@@ -1,5 +1,5 @@
 #### load packages ####
-targetPackages <- c('tidyverse','arrow','patchwork','Gviz','rtracklayer')
+targetPackages <- c('tidyverse','arrow','patchwork','Gviz','rtracklayer','biomaRt')
 newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Package"])]
 if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
 for(package in targetPackages) library(package, character.only = T)
@@ -54,14 +54,39 @@ ggsave("../figures/Figure5a.png", g_ghas_manhattan, w = 2, h = 6)
 
 #### Figure 5b ####
 region <- GRanges("2R", IRanges(14665000, 14720000))
-txdb <- GenomicFeatures::makeTxDbFromGFF("../data/0_genome/Drosophila_melanogaster.BDGP6.46.113.gtf", 
+txdb <- GenomicFeatures::makeTxDbFromGFF("../data/0_genome/Drosophila_melanogaster.BDGP5.78.gtf", 
                                          format = "gtf")
-p <- ggbio::autoplot(txdb, which = region) +
-  coord_cartesian(xlim = c(14665000, 14720000)) +
-  theme_bw()
-pdf("../figures/Figure5b1.pdf", width=5, height=5)
+gene_ranges <- GenomicFeatures::genes(txdb)
+subset_genes <- subsetByOverlaps(gene_ranges, region)
+
+df_genes <- as.data.frame(subset_genes)
+df_genes$label_x <- (df_genes$start + df_genes$end) / 2
+df_genes$label_y <- 1
+
+mart <- biomaRt::useMart(biomart = "ensembl",  #useEnsembl or useMart
+                         host = "https://www.ensembl.org", 
+                         dataset = "dmelanogaster_gene_ensembl")
+gene_name <- biomaRt::getBM(attributes = c("external_gene_name", 
+                                                  "ensembl_gene_id"),
+                                   filters = "ensembl_gene_id",
+                                   values = df_genes$gene_id,
+                                   mart = mart) %>%
+  dplyr::rename(gene_name = external_gene_name)
+df_genes <- df_genes %>%
+  bind_cols(gene_name)
+
+p <- ggplot(df_genes) +
+  geom_segment(aes(x = start, xend = end, y = 1, yend = 1),
+               arrow = arrow(length = unit(0.1, "inches"), type = "closed"),
+               linewidth = 1) +
+  geom_text(aes(x = label_x, y = 1.1, label = gene_name), size = 3, angle = 45, hjust = 0) +
+  coord_cartesian(xlim = c(14665000, 14720000), ylim = c(0, 2)) +
+  theme_bw() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
 p
-dev.off()
+ggsave("../figures/Figure5b1.pdf", p, width=5, height=2)
 
 g2 <- 
   ggplot(df_ghas %>%
@@ -93,6 +118,11 @@ dfd_pi_1kbp2_top <- dfd_pi_1kbp2 %>%
   filter(CHROM == "2R", BIN_START == 14689001) %>%
   left_join(dfd_pheno)
 
+##### stat #####
+stats::cor.test(x = dfd_pi_1kbp2_top$PI, 
+                y = dfd_pi_1kbp2_top$DE)
+
+##### make plot #####
 g_pi_de <-
   ggplot(dfd_pi_1kbp2_top,
        aes(x = PI, y = DE)) +

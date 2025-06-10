@@ -109,6 +109,25 @@ g_main_normexp_ptp99a_meanse <- ggplot(df_main.ptp99a_2 %>%
 ggsave("../figures/FigureS11c.pdf", g_main_normexp_ptp99a_meanse, w = 5, h = 4)
 
 
+##### write Supplementary Data 9 #####
+df_SuppData9_FigS11c <-
+  df_main.ptp99a_2 %>%
+  filter(type %in% cell_list) %>%
+  transform(type = factor(type, levels = cell_list)) %>%
+  group_by(type, time, genotype2, direction) %>%
+  dplyr::summarize(mean = mean(expression, na.rm = TRUE),
+                   sd = sd(expression, na.rm = TRUE),
+                   n = n(),
+                   se = sd / sqrt(n),
+                   pval = mean(pval, na.rm = TRUE)) %>%
+  ungroup() %>%
+  dplyr::mutate(star = makeStars(pval)) %>%
+  dplyr::rename(genotype = genotype2) %>%
+  dplyr::mutate(across(everything(), ~ ifelse(is.na(.), "NA", as.character(.))))
+
+openxlsx::write.xlsx(df_SuppData9_FigS11c, "../figures/SuppData9_FigS11c.xlsx")
+
+
 #### Figure S11d ####
 seurat_obj <- readRDS("../data/4_scRNAseq/hdWGCNA/seurat_obj.rds")
 
@@ -180,7 +199,8 @@ df_ME_wilcox_time <- read.table("../data/4_scRNAseq/hdWGCNA/df_ME_wilcox_time.ts
                               header = TRUE)
 
 g_wilcoxon_time <- 
-  ggplot(df_ME_wilcox_time,
+  ggplot(df_ME_wilcox_time %>%
+           transform(type = factor(type, levels = cell_list)),
          aes(x = time, y = mean)) +
   geom_path(aes(color = condition, group = condition)) +
   geom_point(aes(color = condition), shape = 16, size = 2, 
@@ -199,3 +219,15 @@ g_wilcoxon_time <-
 g_wilcoxon_time
 ggsave("../figures/FigureS11f.pdf", g_wilcoxon_time, w = 7, h = 7)
 
+##### write Supplementary Data 9 #####
+df_SuppData9_FigS11f <-
+  df_ME_wilcox_time %>%
+  dplyr::mutate(genotype = if_else(condition == "C", "C/T", "T/T")) %>%
+  dplyr::mutate(across(everything(), ~ ifelse(is.na(.), "NA", as.character(.)))) %>%
+  dplyr::rename(module = Module) %>%
+  transform(type = factor(type, levels = cell_list)) %>%
+  arrange(module, type, time, condition) %>%
+  dplyr::select(!condition) %>%
+  dplyr::select(module, type, time, genotype, everything())
+
+openxlsx::write.xlsx(df_SuppData9_FigS11f, "../figures/SuppData9_FigS11f.xlsx")

@@ -54,7 +54,8 @@ stat_d_s5min_stim_speed_normbyf5minave_performance_sep <-
   rstatix::adjust_pvalue(method = "bonferroni") %>%
   rstatix::add_significance("p.adj") %>%
   dplyr::mutate(xpos = if_else(time == "Before", 1, 2),
-         ypos = if_else(p.adj.signif == "ns", 1.5, 1.47))
+         ypos = if_else(p.adj.signif == "ns", 1.5, 1.47)) %>%
+  print()
 
 
 g_d_s5min_stim_speed_normbyf5minave_performance_sep <-

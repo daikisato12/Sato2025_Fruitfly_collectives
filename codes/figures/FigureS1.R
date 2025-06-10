@@ -25,6 +25,7 @@ car::Anova(model_speed)
 res_single_female <- anova(lm(get(var) ~ strain, data = df_f5min_speed_wo_mutant %>% 
                                filter(sex == "Female", n_inds == "Single"
                                )))
+sprintf("%.2e", res_single_female$`Pr(>F)`[1])
 sg2_single_female <- (res_single_female$`Mean Sq`[1] - res_single_female$`Mean Sq`[2]) / r
 se2_single_female <- res_single_female$`Mean Sq`[2]
 sg2_single_female / (sg2_single_female + se2_single_female/r)
@@ -39,6 +40,7 @@ sg2_single_female / (sg2_single_female + se2_single_female/r)
 res_group_female <- anova(lm(get(var) ~ strain, data = df_f5min_speed_wo_mutant %>% 
                                filter(sex == "Female", n_inds == "Group"
                                )))
+sprintf("%.2e", res_group_female$`Pr(>F)`[1])
 sg2_group_female <- (res_group_female$`Mean Sq`[1] - res_group_female$`Mean Sq`[2]) / r
 se2_group_female <- res_group_female$`Mean Sq`[2]
 sg2_group_female / (sg2_group_female + se2_group_female/r)
@@ -53,6 +55,7 @@ sg2_group_female / (sg2_group_female + se2_group_female/r)
 res_single_male <- anova(lm(get(var) ~ strain, data = df_f5min_speed_wo_mutant %>% 
                               filter(sex == "Male", n_inds == "Single"
                               )))
+sprintf("%.2e", res_single_male$`Pr(>F)`[1])
 sg2_single_male <- (res_single_male$`Mean Sq`[1] - res_single_male$`Mean Sq`[2]) / r
 se2_single_male <- res_single_male$`Mean Sq`[2]
 sg2_single_male / (sg2_single_male + se2_single_male/r)
@@ -67,6 +70,7 @@ sg2_single_male / (sg2_single_male + se2_single_male/r)
 res_group_male <- anova(lm(get(var) ~ strain, data = df_f5min_speed_wo_mutant %>% 
                              filter(sex == "Male", n_inds == "Group"
                              )))
+sprintf("%.2e", res_group_male$`Pr(>F)`[1])
 sg2_group_male <- (res_group_male$`Mean Sq`[1] - res_group_male$`Mean Sq`[2]) / r
 se2_group_male <- res_group_male$`Mean Sq`[2]
 sg2_group_male / (sg2_group_male + se2_group_male/r)
@@ -78,6 +82,7 @@ sg2_group_male / (sg2_group_male + se2_group_male/r)
 
 
 #### make plot ####
+##### Figure S1a #####
 gig_f5min_speed_sex <- df_f5min_speed_wo_mutant %>% 
   ggplot(aes(x = reorder(strain, rep(.[.$n_inds=="Single",]$speed, each = 2), na.rm = TRUE), y = speed, col = n_inds)) +
   stat_summary(fun.data = "mean_se", geom = "errorbar", width = 0) +
@@ -101,22 +106,39 @@ gig_f5min_speed_sex <- df_f5min_speed_wo_mutant %>%
         panel.spacing = unit(0.7, "lines"))
 # gig_f5min_speed_sex
 
+##### Figure S1b #####
 ###### speed single vs group ######
 df_f5min_speed_wo_mutant %>%
   group_by(strain, sex, n_inds) %>%
   dplyr::summarize(speed = mean(speed, na.rm = T)) %>%
-  ungroup() %>%
   pivot_wider(names_from = n_inds, values_from = speed, names_prefix = "speed_", names_sep = "_") %>%
   mutate(plot_col = if_else(speed_Group / speed_Single > 1, "over", "under")) %>%
   group_by(sex, plot_col) %>%
   summarize(n = n())
 
-gig_f5min_speed_vs_group <- df_f5min_speed_wo_mutant %>%
+# stat
+df_figS1b1 <- df_f5min_speed_wo_mutant %>%
   group_by(strain, sex, n_inds) %>%
   dplyr::summarize(speed = mean(speed, na.rm = T)) %>%
-  ungroup() %>%
   pivot_wider(names_from = n_inds, values_from = speed, names_prefix = "speed_", names_sep = "_") %>%
-  mutate(plot_col = if_else(speed_Group / speed_Single > 1, "over", "under")) %>%
+  mutate(plot_col = if_else(speed_Group / speed_Single > 1, "over", "under"))
+df_figS1b1_stats <- df_figS1b1 %>%
+  group_by(sex) %>%
+  dplyr::summarize(
+    r = cor(speed_Single, speed_Group, use = "complete.obs"),
+    cor_test = list(cor.test(speed_Single, speed_Group, use = "complete.obs")),
+    .groups = "drop"
+  ) %>%
+  dplyr::mutate(
+    p_value = map_dbl(cor_test, ~ .x$p.value),
+    r_squared = r**2,
+    p_formatted = sprintf("%.2e", p_value)
+  ) %>%
+  dplyr::select(sex, r_squared, p_formatted) %>%
+  print()
+
+
+gig_f5min_speed_vs_group <- df_figS1b1 %>%
   ggplot(aes(x = speed_Single, y = speed_Group)) +
   geom_abline(slope = 1, linetype = "dashed") +
   stat_smooth(linewidth = 2, color= "grey", method = "lm") +
@@ -146,17 +168,33 @@ gig_f5min_speed_vs_group <- df_f5min_speed_wo_mutant %>%
 df_f5min_speed_wo_mutant %>%
   group_by(strain, sex, n_inds) %>%
   dplyr::summarize(speed = mean(speed, na.rm = T)) %>%
-  ungroup() %>%
   pivot_wider(names_from = sex, values_from = speed, names_prefix = "speed_", names_sep = "_") %>%
   mutate(plot_col = if_else(speed_Female / speed_Male > 1, "over", "under")) %>%
   group_by(n_inds, plot_col) %>%
   summarize(n = n())
 
-gig_f5min_speed_vs_sex <- df_f5min_speed_wo_mutant %>%
+# stat
+df_figS1b2 <- df_f5min_speed_wo_mutant %>%
   group_by(strain, n_inds, sex) %>%
   dplyr::summarize(speed = mean(speed, na.rm=T)) %>%
   pivot_wider(names_from = sex, values_from = speed, names_prefix = "speed_", names_sep = "_") %>%
-  mutate(plot_col = if_else(speed_Male / speed_Female < 1, "over", "under")) %>%
+  mutate(plot_col = if_else(speed_Male / speed_Female < 1, "over", "under"))
+df_figS1b2_stats <- df_figS1b2 %>%
+  group_by(n_inds) %>%
+  dplyr::summarize(
+    r = cor(speed_Male, speed_Female, use = "complete.obs"),
+    cor_test = list(cor.test(speed_Male, speed_Female, use = "complete.obs")),
+    .groups = "drop"
+  ) %>%
+  dplyr::mutate(
+    p_value = map_dbl(cor_test, ~ .x$p.value),
+    r_squared = r**2,
+    p_formatted = sprintf("%.2e", p_value)
+  ) %>%
+  dplyr::select(n_inds, r_squared, p_formatted) %>%
+  print()
+
+gig_f5min_speed_vs_sex <- df_figS1b2 %>%
   ggplot(aes(x = speed_Male, y = speed_Female)) +
   geom_abline(slope = 1, linetype = "dashed") +
   stat_smooth(linewidth = 2, color= "grey", method = "lm") +

@@ -73,7 +73,7 @@ ggsave("../figures/FigureS9a.pdf", g_pca, w = 3, h = 3)
 
 #### Figure S9b ####
 ##### load dataset #####
-df_heritability <- read.table("../data/1_single_strain/gwas/result/heritability/1pheno_hG.txt",h=T) %>%
+df_heritability <- read.table("../data/1_single_strain/gwas/heritability/1pheno_hG.txt",h=T) %>%
   mutate(trait = case_when(str_detect(trait, "freezing_duration") ~ str_replace(trait, "freezing_duration", "Freezing duration"),
                            str_detect(trait, "visual_reactivity") ~ str_replace(trait, "visual_reactivity", "Visual responsiveness_group"),
                            str_detect(trait, "nnd") ~ str_replace(trait, "nnd", "NND_group"),
@@ -110,55 +110,6 @@ ggsave("../figures/FigureS9b.pdf", g_her, width=4, height=2.5)
 
 
 #### Figure S9c ####
-##### load dataset #####
-df_geno <- read.table("../data/1_single_strain/gwas/result/heritability/2pheno_rG.txt", h=T) %>%
-  mutate(trait1 = case_when(str_detect(trait1, "freezing_duration") ~ str_replace(trait1, "freezing_duration", "Freezing duration"),
-                            str_detect(trait1, "visual_reactivity") ~ str_replace(trait1, "visual_reactivity", "Visual responsiveness_group"),
-                            str_detect(trait1, "nnd") ~ str_replace(trait1, "nnd", "NND_group"),
-                            TRUE ~ trait1),
-         trait1_tmp = trait1) %>%
-  mutate(trait2 = case_when(str_detect(trait2, "freezing_duration") ~ str_replace(trait2, "freezing_duration", "Freezing duration"),
-                            str_detect(trait2, "visual_reactivity") ~ str_replace(trait2, "visual_reactivity", "Visual responsiveness_group"),
-                            str_detect(trait2, "nnd") ~ str_replace(trait2, "nnd", "NND_group"),
-                            TRUE ~ trait2),
-         trait2_tmp = trait2) %>%
-  separate(trait1, sep = "_", into = c("trait1", "n_inds1", "sex1")) %>%
-  separate(trait2, sep = "_", into = c("trait2", "n_inds2", "sex2")) %>%
-  mutate(n_inds1 = str_to_title(n_inds1),
-         sex1 = str_to_title(sex1),
-         trait1 = paste0(trait1, " (", n_inds1, "/", sex1, ")"),
-         n_inds2 = str_to_title(n_inds2),
-         sex2 = str_to_title(sex2),
-         trait2 = paste0(trait2, " (", n_inds2, "/", sex2, ")")) %>%
-  mutate(compare = case_when(trait1 == trait2 & n_inds1 != n_inds2 & sex1 == sex2 ~ "Single-Group",
-                             trait1 == trait2 & n_inds1 == n_inds2 & sex1 != sex2 ~ "Male-Female",
-                             TRUE ~ "others")) %>% 
-  tidyr::replace_na(., replace = list(cor = 0)) %>%
-  mutate(cor = case_when(cor > 1 ~ 1,
-                         cor < -1 ~ -1, 
-                         TRUE ~ cor))
-
-
-# cor all
-df_genetic_cor <- df_geno %>%
-  dplyr::select(trait1, trait2, cor) %>%
-  pivot_wider(names_from = trait2, values_from = cor)
-
-mat_genetic_cor <- df_genetic_cor %>%
-  dplyr::select(-trait1) %>%
-  as.matrix()
-rownames(mat_genetic_cor) <- df_genetic_cor$trait1
-
-##### make plot #####
-g_geno_cor <- ggcorrplot(mat_genetic_cor,
-                         outline.col = "white",
-                         ggtheme = ggplot2::theme_bw,
-                         colors = c("#522f60", "white", "#a25768"))
-g_geno_cor
-ggsave("../figures/FigureS9c.pdf", g_geno_cor, width=6, height=6)
-
-
-#### Figure S9d ####
 ##### load dataset #####
 df_pheno <- read_parquet("../data/1_single_strain/parquet/df_f5min_nnd_rand.parquet") %>%
   ungroup() %>%
@@ -218,40 +169,54 @@ g_pheno_cor <- ggcorrplot(mat_phenotypic_cor, type = "upper",
                           ggtheme = ggplot2::theme_bw,
                           colors = c("#522f60", "white", "#a25768"))
 g_pheno_cor
-ggsave("../figures/FigureS9d.pdf", g_pheno_cor, width=6, height=6)
+ggsave("../figures/FigureS9c.pdf", g_pheno_cor, width=6, height=6)
 
-# #### Figure S9# corrleation between pheno vs. geno ####
-# ##### load dataset #####
-# df_phenotypic_genetic_cor <-
-#   df_phenotypic_cor %>%
-#   pivot_longer(cols = !term, values_to = "phenotypic_cor") %>%
-#   right_join(df_genetic_cor %>%
-#                pivot_longer(cols = !trait1, 
-#                             values_to = "genetic_cor") %>%
-#                dplyr::rename(term = trait1))
-# 
-# 
-# ##### make plot #####
-# g_cor_pheno_genet <- 
-#   ggplot(df_phenotypic_genetic_cor %>%
-#            mutate(plot_col = if_else(phenotypic_cor - genetic_cor < 0, "over", "under")),
-#          aes(x = genetic_cor, y = phenotypic_cor)) +
-#   geom_abline(slope = 1, linetype = "dashed") +
-#   stat_smooth(linewidth = 2, color= "grey", method = "lm") +
-#   ggpmisc::stat_poly_eq(formula = y ~ x,
-#                         aes(label = paste(
-#                           after_stat(rr.label),
-#                           stat(p.value.label),
-#                           sep = "~~~")),
-#                         label.x = "left",
-#                         label.y = "top",
-#                         parse = TRUE, size = 4) +
-#   geom_point(aes(color = plot_col), size = 4, shape = 16, alpha = 0.5) +
-#   scale_color_manual(values = c("#a25768","#71686c")) +
-#   xlab("SNP-based genetic correlation") +
-#   ylab("Phenotypic correlation") +
-#   theme_bw() +
-#   theme(legend.position = "none")
-# g_cor_pheno_genet
-# 
-# ggsave("../figures/FigureS9#.pdf", g_cor_pheno_genet, width = 2.5, height = 4)
+
+#### Figure S9d ####
+##### load dataset #####
+df_geno <- read.table("../data/1_single_strain/gwas/heritability/2pheno_rG.txt", h=T) %>%
+  mutate(trait1 = case_when(str_detect(trait1, "freezing_duration") ~ str_replace(trait1, "freezing_duration", "Freezing duration"),
+                            str_detect(trait1, "visual_reactivity") ~ str_replace(trait1, "visual_reactivity", "Visual responsiveness_group"),
+                            str_detect(trait1, "nnd") ~ str_replace(trait1, "nnd", "NND_group"),
+                            TRUE ~ trait1),
+         trait1_tmp = trait1) %>%
+  mutate(trait2 = case_when(str_detect(trait2, "freezing_duration") ~ str_replace(trait2, "freezing_duration", "Freezing duration"),
+                            str_detect(trait2, "visual_reactivity") ~ str_replace(trait2, "visual_reactivity", "Visual responsiveness_group"),
+                            str_detect(trait2, "nnd") ~ str_replace(trait2, "nnd", "NND_group"),
+                            TRUE ~ trait2),
+         trait2_tmp = trait2) %>%
+  separate(trait1, sep = "_", into = c("trait1", "n_inds1", "sex1")) %>%
+  separate(trait2, sep = "_", into = c("trait2", "n_inds2", "sex2")) %>%
+  mutate(n_inds1 = str_to_title(n_inds1),
+         sex1 = str_to_title(sex1),
+         trait1 = paste0(trait1, " (", n_inds1, "/", sex1, ")"),
+         n_inds2 = str_to_title(n_inds2),
+         sex2 = str_to_title(sex2),
+         trait2 = paste0(trait2, " (", n_inds2, "/", sex2, ")")) %>%
+  mutate(compare = case_when(trait1 == trait2 & n_inds1 != n_inds2 & sex1 == sex2 ~ "Single-Group",
+                             trait1 == trait2 & n_inds1 == n_inds2 & sex1 != sex2 ~ "Male-Female",
+                             TRUE ~ "others")) %>% 
+  tidyr::replace_na(., replace = list(cor = 0)) %>%
+  mutate(cor = case_when(cor > 1 ~ 1,
+                         cor < -1 ~ -1, 
+                         TRUE ~ cor))
+
+
+# cor all
+df_genetic_cor <- df_geno %>%
+  dplyr::select(trait1, trait2, cor) %>%
+  pivot_wider(names_from = trait2, values_from = cor)
+
+mat_genetic_cor <- df_genetic_cor %>%
+  dplyr::select(-trait1) %>%
+  as.matrix()
+rownames(mat_genetic_cor) <- df_genetic_cor$trait1
+
+##### make plot #####
+g_geno_cor <- ggcorrplot(mat_genetic_cor,
+                         outline.col = "white",
+                         ggtheme = ggplot2::theme_bw,
+                         colors = c("#522f60", "white", "#a25768"))
+g_geno_cor
+ggsave("../figures/FigureS9d.pdf", g_geno_cor, width=6, height=6)
+

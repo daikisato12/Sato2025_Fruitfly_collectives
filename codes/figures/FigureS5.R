@@ -105,6 +105,7 @@ df_s5min_motion_cue_exit_intercept_male_order <- df_motion_cue_exit_coeff_trial 
 res_male <- anova(lm(get(var) ~ strain, data = df_motion_cue_exit_coeff_trial %>% 
                        filter(!str_detect(strain ,"norpA"),
                               sex == "Male")))
+sprintf("%.2e", res_male$`Pr(>F)`[1])
 sg2_male <- (res_male$`Mean Sq`[1] - res_male$`Mean Sq`[2]) / r
 se2_male <- res_male$`Mean Sq`[2]
 sg2_male / (sg2_male + se2_male/r)
@@ -170,6 +171,7 @@ df_s5min_motion_cue_exit_intercept_female_order <- df_motion_cue_exit_coeff_tria
 res_female <- anova(lm(get(var) ~ strain, data = df_motion_cue_exit_coeff_trial %>% 
                        filter(!strain %in% c("norpA", "DGRP208_norpA"),
                               sex == "Female")))
+sprintf("%.2e", res_female$`Pr(>F)`[1])
 sg2_female <- (res_female$`Mean Sq`[1] - res_female$`Mean Sq`[2]) / r
 se2_female <- res_female$`Mean Sq`[2]
 sg2_female / (sg2_female + se2_female/r)
@@ -319,10 +321,27 @@ df_motion_cue_exit_coeff %>%
   group_by(plot_col) %>%
   summarize(n = n())
 
-gg_s5min_stim_motion_cue_exit_vs_sex <- df_motion_cue_exit_coeff %>%
+# stat
+df_figS5c <- df_motion_cue_exit_coeff %>%
   pivot_wider(id_cols = strain, names_from = sex, values_from = motion_cue_exit_intercept, names_prefix = "motion_cue_exit_intercept_", names_sep = "_") %>%
   mutate(plot_col = if_else(motion_cue_exit_intercept_Female - motion_cue_exit_intercept_Male > 0, "over", "under")) %>%
-  filter(strain != "norpA") %>%
+  filter(!strain %in% c("norpA", "DGRP208_norpA"))
+df_figS5c_stats <- df_figS5c %>%
+  ungroup() %>%
+  dplyr::summarize(
+    r = cor(motion_cue_exit_intercept_Male, motion_cue_exit_intercept_Female, use = "complete.obs"),
+    cor_test = list(cor.test(motion_cue_exit_intercept_Male, motion_cue_exit_intercept_Female, use = "complete.obs"))
+  ) %>%
+  dplyr::mutate(
+    p_value = map_dbl(cor_test, ~ .x$p.value),
+    r_squared = r**2,
+    p_formatted = sprintf("%.2e", p_value)
+  ) %>%
+  dplyr::select(r_squared, p_formatted) %>%
+  print()
+
+
+gg_s5min_stim_motion_cue_exit_vs_sex <- df_figS5c %>%
   ggplot(aes(x = motion_cue_exit_intercept_Male, y = motion_cue_exit_intercept_Female)) +
   geom_abline(slope = 1, linetype = "dashed") +
   stat_smooth(linewidth = 2, color= "grey", method = "lm") +

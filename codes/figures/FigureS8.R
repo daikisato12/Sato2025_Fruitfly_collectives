@@ -4,51 +4,73 @@ newPackages <- targetPackages[!(targetPackages %in% installed.packages()[,"Packa
 if(length(newPackages)) install.packages(newPackages, repos = "http://cran.us.r-project.org")
 for(package in targetPackages) library(package, character.only = T)
 
-#### Figure S8a ####
-##### load simulation dataset #####
-files_grid_simulation_group <- list.files("../data/5_simulation/1_grid_parameters/parquet", pattern = "df*", full.names = TRUE, recursive=T) %>% 
-  gtools::mixedsort()
-param_t_grid_simulation_group <- files_grid_simulation_group %>%
-  basename() %>%
-  str_split("_") %>%
-  map_chr(6)
-names(param_t_grid_simulation_group) <- seq(1:length(param_t_grid_simulation_group))
-param_a_grid_simulation_group <- files_grid_simulation_group %>%
-  basename() %>%
-  str_split("_") %>%
-  map_chr(7)
-names(param_a_grid_simulation_group) <- seq(1:length(param_a_grid_simulation_group))
-social_factor_grid_simulation_group <- files_grid_simulation_group %>%
-  basename() %>%
-  str_split("_") %>%
-  map_chr(8) %>%
-  str_remove(".parquet")
-names(social_factor_grid_simulation_group) <- seq(1:length(social_factor_grid_simulation_group))
 
-df_grid_simulation_group_pos <- map_dfr(files_grid_simulation_group, arrow::read_parquet, .id = 'id') %>%
-  dplyr::mutate(param_t = param_t_grid_simulation_group[id] %>% as.numeric(),
-                param_a = param_a_grid_simulation_group[id] %>% as.numeric(),
-                social_factor = social_factor_grid_simulation_group[id] %>% as.numeric(),
+#### Figure S8 ####
+##### load simulation dataset #####
+###### groupsinglemove ######
+files_groupsinglemove <- list.files("../data/5_simulation/1_grid_parameters/groupsinglemove/", pattern = "df*", full.names = TRUE, recursive=T) %>% 
+  gtools::mixedsort()
+param_t_groupsinglemove <- files_groupsinglemove %>%
+  basename() %>%
+  str_split("_") %>%
+  map_chr(4)
+names(param_t_groupsinglemove) <- seq(1:length(param_t_groupsinglemove))
+param_a_groupsinglemove <- files_groupsinglemove %>%
+  basename() %>%
+  str_split("_") %>%
+  map_chr(5)
+names(param_a_groupsinglemove) <- seq(1:length(param_a_groupsinglemove))
+
+df_groupsinglemove_pos <- map_dfr(files_groupsinglemove, arrow::read_parquet, .id = 'id') %>%
+  dplyr::mutate(param_t = param_t_groupsinglemove[id] %>% as.numeric(),
+                param_a = param_a_groupsinglemove[id] %>% as.numeric(),
+                social_factor = 0,
                 id = as.numeric(id)) %>%
   ungroup() %>%
-  arrange(stim_time, id, rep) %>%
-  group_by(param_t, param_a, social_factor, stim_time) %>%
-  dplyr::summarize(speed = mean(speed, na.rm = TRUE))
+  arrange(stim_time, id, rep)
 
-# ###### merge ######
-# df_groupmerge_pos <-
-#   df_groupsocialcontagion_pos %>%
-#   group_by(param_t, param_a, social_factor, stim_time) %>%
-#   dplyr::summarize(speed = mean(speed, na.rm = TRUE)) %>%
-#   dplyr::mutate(type = "Group w interaction") %>%
-#   bind_rows(df_groupsinglemove_pos %>%
-#               group_by(param_t, param_a, social_factor, stim_time) %>%
-#               dplyr::summarize(speed = mean(speed, na.rm = TRUE)) %>%
-#               dplyr::mutate(type = "Group w/o interaction")) %>%
-#   dplyr::mutate(alpha = if_else(str_detect(type, "w/o"), 0.5, 1)) %>%
-#   transform(type = factor(type, levels = c("Group w/o interaction",
-#                                            "Group w interaction")))
-# 
+###### groupsocialcontagion ######
+files_groupsocialcontagion <- list.files("../data/5_simulation/1_grid_parameters/groupsocialcontagion", pattern = "df*", full.names = TRUE, recursive=T) %>% 
+  gtools::mixedsort()
+param_t_groupsocialcontagion <- files_groupsocialcontagion %>%
+  basename() %>%
+  str_split("_") %>%
+  map_chr(4)
+names(param_t_groupsocialcontagion) <- seq(1:length(param_t_groupsocialcontagion))
+param_a_groupsocialcontagion <- files_groupsocialcontagion %>%
+  basename() %>%
+  str_split("_") %>%
+  map_chr(5)
+names(param_a_groupsocialcontagion) <- seq(1:length(param_a_groupsocialcontagion))
+social_factor_groupsocialcontagion <- files_groupsocialcontagion %>%
+  basename() %>%
+  str_split("_") %>%
+  map_chr(6) %>%
+  str_remove(".parquet")
+names(social_factor_groupsocialcontagion) <- seq(1:length(social_factor_groupsocialcontagion))
+
+df_groupsocialcontagion_pos <- map_dfr(files_groupsocialcontagion, arrow::read_parquet, .id = 'id') %>%
+  dplyr::mutate(param_t = param_t_groupsocialcontagion[id] %>% as.numeric(),
+                param_a = param_a_groupsocialcontagion[id] %>% as.numeric(),
+                social_factor = social_factor_groupsocialcontagion[id] %>% as.numeric(),
+                id = as.numeric(id)) %>%
+  ungroup() %>%
+  arrange(stim_time, id, rep)
+
+###### merge ######
+df_groupmerge_pos <-
+  df_groupsocialcontagion_pos %>%
+  group_by(param_t, param_a, social_factor, stim_time) %>%
+  dplyr::summarize(speed = mean(speed, na.rm = TRUE)) %>%
+  dplyr::mutate(type = "Group w interaction") %>%
+  bind_rows(df_groupsinglemove_pos %>%
+              group_by(param_t, param_a, social_factor, stim_time) %>%
+              dplyr::summarize(speed = mean(speed, na.rm = TRUE)) %>%
+              dplyr::mutate(type = "Group w/o interaction")) %>%
+  dplyr::mutate(alpha = if_else(str_detect(type, "w/o"), 0.5, 1)) %>%
+  transform(type = factor(type, levels = c("Group w/o interaction",
+                                           "Group w interaction")))
+
 
 
 ##### load original fly dataset #####
@@ -73,7 +95,7 @@ df_s5min_2995_5990_speed_sg_normbyf5minave_strain <-
 
 ##### calculate distance from real movement pattern of fly groups #####
 df_groupmerge_realfly <-
-  df_grid_simulation_group_pos %>%
+  df_groupmerge_pos %>%
   left_join(df_s5min_2995_5990_speed_sg_normbyf5minave_strain %>%
               filter(sex == "Female", n_inds == "Group") %>%
               filter(strain %in% c("DGRP88", "DGRP101", "DGRP136", "DGRP161",

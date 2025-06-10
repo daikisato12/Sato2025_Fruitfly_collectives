@@ -88,6 +88,7 @@ df_f5min_nnd_male_order <- df_f5min_nnd_rand %>%
 res_male <- anova(lm(get(var) ~ strain, data = df_f5min_nnd_rand %>% 
                               filter(!strain %in% c("random", "norpA", "DGRP208_norpA"),
                                      sex == "Male")))
+sprintf("%.2e", res_male$`Pr(>F)`[1])
 sg2_male <- (res_male$`Mean Sq`[1] - res_male$`Mean Sq`[2]) / r
 se2_male <- res_male$`Mean Sq`[2]
 sg2_male / (sg2_male + se2_male/r)
@@ -160,6 +161,7 @@ df_f5min_nnd_female_order <- df_f5min_nnd_rand %>%
 res_female <- anova(lm(get(var) ~ strain, data = df_f5min_nnd_rand %>% 
                                 filter(!strain %in% c("random", "norpA", "DGRP208_norpA"),
                                        sex == "Female")))
+sprintf("%.2e", res_female$`Pr(>F)`[1])
 sg2_female <- (res_female$`Mean Sq`[1] - res_female$`Mean Sq`[2]) / r
 se2_female <- res_female$`Mean Sq`[2]
 sg2_female / (sg2_female + se2_female/r)
@@ -287,12 +289,28 @@ df_f5min_nnd_rand %>%
   group_by(plot_col) %>%
   summarize(n = n())
 
-gg_f5min_nnd_vs_sex <- df_f5min_nnd_rand %>%
+# stat
+df_figS2b <- df_f5min_nnd_rand %>%
   filter(!strain %in% c("random", "norpA", "DGRP208_norpA")) %>%
   group_by(strain, sex) %>%
   dplyr::summarize(nnd = mean(nnd, na.rm = T)) %>%
   pivot_wider(names_from = sex, values_from = nnd, names_prefix = "nnd_", names_sep = "_") %>%
-  mutate(plot_col = if_else(nnd_Male / nnd_Female < 1, "over", "under")) %>%
+  mutate(plot_col = if_else(nnd_Male / nnd_Female < 1, "over", "under"))
+df_figS2b_stats <- df_figS2b %>%
+  ungroup() %>%
+  dplyr::summarize(
+    r = cor(nnd_Male, nnd_Female, use = "complete.obs"),
+    cor_test = list(cor.test(nnd_Male, nnd_Female, use = "complete.obs"))
+  ) %>%
+  dplyr::mutate(
+    p_value = map_dbl(cor_test, ~ .x$p.value),
+    r_squared = r**2,
+    p_formatted = sprintf("%.2e", p_value)
+  ) %>%
+  dplyr::select(r_squared, p_formatted) %>%
+  print()
+
+gg_f5min_nnd_vs_sex <- df_figS2b %>%
   ggplot(aes(x = nnd_Male, y = nnd_Female)) +
   geom_abline(slope = 1, linetype = "dashed") +
   stat_smooth(linewidth = 2, color= "grey", method = "lm") +

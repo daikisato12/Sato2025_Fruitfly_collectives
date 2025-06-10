@@ -58,7 +58,7 @@ df_spider_single_aggression_tmp <- df_spider_single %>%
     ),
     row_id = row_number()
   ) %>%
-  dplyr::select(-row_id)
+  dplyr::select(-row_id) # 不要な列を削除
 
 df_spider_single_aggression_num_attack <- df_spider_single_aggression_tmp %>%
   dplyr::filter(match_condition == TRUE) %>%
@@ -226,5 +226,8 @@ emmeans_results <- emmeans::emmeans(model_lmer, ~ stop_duration)
 pairwise_results <- pairs(emmeans_results, adjust = "tukey")
 emmeans::pwpp(emmeans_results, sort = FALSE) + theme_bw()
 print(pairwise_results)
+pairwise_results %>%
+  as.data.frame() %>%
+  dplyr::mutate(p_formatted = sprintf("%.2e", p.value))
 
 

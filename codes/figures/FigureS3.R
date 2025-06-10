@@ -8,7 +8,6 @@ for(package in targetPackages) library(package, character.only = T)
 df_f5min_group_male_seconds_nest_dist_chase_strain_mean <- read_parquet("../data/1_single_strain/parquet/df_f5min_group_male_seconds_nest_dist_chase_3mm_strain_mean.parquet") %>%
   ungroup()
 
-
 #### analysis time_chase ####
 var <- "time_chase"
 r <- 20
@@ -17,7 +16,7 @@ r <- 20
 model_time_chase <- lmerTest::lmer(get(var) ~ strain + 
                                      (1|date) + (1|time) + (1|prefix) + (1|place), 
                                    df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>%
-                                     mutate(date = str_sub(prefix, start=1, end=8),
+                                     dplyr::mutate(date = str_sub(prefix, start=1, end=8),
                                             time = as.POSIXct(prefix, format = format('%Y%m%d%H%M%S')) %>% format("%H:%M")) %>%
                                      filter(!str_detect(strain ,"norpA")))
 summary(model_time_chase)
@@ -56,7 +55,7 @@ sg2_time_chain / (sg2_time_chain + se2_time_chain/r)
 
 
 #### make plot ####
-##### gg_f5min_chasing_chaining_time #####
+##### FigureS3a #####
 gg_f5min_chasing_chaining_time <- df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>% 
   pivot_longer(cols = c(time_chase, time_chain), names_to = "var", values_to = "value") %>%
   filter(!str_detect(strain, "norpA")) %>%
@@ -88,15 +87,31 @@ gg_f5min_chasing_chaining_time <- df_f5min_group_male_seconds_nest_dist_chase_st
         panel.spacing = unit(0.7, "lines"))
 gg_f5min_chasing_chaining_time
 
-##### gg_f5min_group_male_chase_chain_cor #####
-# formula <- y ~ poly(x, 2, raw = TRUE)
-formula <- y ~ x
-gg_f5min_group_male_chase_chain_cor <- 
-  df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>% 
+##### Figure S3b #####
+# stat
+df_figS3b <- df_f5min_group_male_seconds_nest_dist_chase_strain_mean %>% 
   filter(!str_detect(strain, "norpA")) %>%
   group_by(strain) %>%
   summarize(time_chase = mean(time_chase, na.rm = TRUE),
-            time_chain = mean(time_chain, na.rm = TRUE)) %>%
+            time_chain = mean(time_chain, na.rm = TRUE))
+df_figS3b_stats <- df_figS3b %>%
+  ungroup() %>%
+  dplyr::summarize(
+    r = cor(time_chase, time_chain, use = "complete.obs"),
+    cor_test = list(cor.test(time_chase, time_chain, use = "complete.obs"))
+  ) %>%
+  dplyr::mutate(
+    p_value = map_dbl(cor_test, ~ .x$p.value),
+    r_squared = r**2,
+    p_formatted = sprintf("%.2e", p_value)
+  ) %>%
+  dplyr::select(r_squared, p_formatted) %>%
+  print()
+
+# formula <- y ~ poly(x, 2, raw = TRUE)
+formula <- y ~ x
+gg_f5min_group_male_chase_chain_cor <- 
+  df_figS3b %>%
   ggplot(aes(x = time_chase, y = time_chain, label = strain)) +
   ggpmisc::stat_poly_line(formula = formula,
                         color= "grey") +
@@ -111,7 +126,7 @@ gg_f5min_group_male_chase_chain_cor <-
                         label.x = "left", label.y = 0.9, 
                         parse = TRUE, size = 2) +
   geom_point(shape = 16, alpha=0.5, size = 3) +
-  geom_text_repel(size = 2) +
+  ggrepel::geom_text_repel(size = 2) +
   xlab("Chasing duration (sec)") +
   ylab("Chaining duration (sec)") +
   theme_bw() +

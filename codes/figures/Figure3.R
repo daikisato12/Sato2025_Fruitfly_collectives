@@ -15,6 +15,11 @@ dfm_motion_cue_exit_coeff_trial2 <- read_parquet("../data/3_mutants/dfm_motion_c
   ungroup()
 
 ##### stat #####
+###### IMPTNT_R9B08 vs. TNT_R9B08 ######
+stats::wilcox.test(freezing_duration ~ strain, 
+                   data = dfm_s5min_2995_5990_freezing_duration %>%
+                     filter(strain %in% c("IMPTNT_R9B08", "TNT_R9B08"),
+                            sex == "Female", n_inds == "Single"))
 stats::wilcox.test(freezing_duration ~ strain, 
                    data = dfm_s5min_2995_5990_freezing_duration %>%
                      filter(strain %in% c("IMPTNT_R9B08", "TNT_R9B08"),
@@ -24,28 +29,47 @@ stats::wilcox.test(motion_cue_exit_intercept ~ strain,
                      filter(strain %in% c("IMPTNT_R9B08", "TNT_R9B08"),
                             sex == "Female"))
 
-# stats::wilcox.test(freezing_duration ~ strain, 
-#                    data = dfm_s5min_2995_5990_freezing_duration %>%
-#                      filter(strain %in% c("Ptp99ARNAi_NA", "Ptp99ARNAi_R9B08"),
-#                             sex == "Female", n_inds == "Group"))
-stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
-                   data = dfm_motion_cue_exit_coeff_trial2 %>%
-                     filter(strain %in% c("NA_R9B08", "Ptp99ARNAi_R9B08"),
-                            sex == "Female"))
-stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
-                   data = dfm_motion_cue_exit_coeff_trial2 %>%
-                     filter(strain %in% c("Ptp99ARNAi_NA", "Ptp99ARNAi_R9B08"),
-                            sex == "Female"))
-
-# stats::wilcox.test(freezing_duration ~ strain, 
-#                    data = dfm_s5min_2995_5990_freezing_duration %>%
-#                      filter(strain %in% c("IMPTNT_Ptp99A", "TNT_Ptp99A"),
-#                             sex == "Female", n_inds == "Group"))
+###### IMPTNT_Ptp99A vs. TNT_Ptp99A ######
+stats::wilcox.test(freezing_duration ~ strain, 
+                   data = dfm_s5min_2995_5990_freezing_duration %>%
+                     filter(strain %in% c("IMPTNT_Ptp99A", "TNT_Ptp99A"),
+                            sex == "Female", n_inds == "Single"))
+stats::wilcox.test(freezing_duration ~ strain, 
+                   data = dfm_s5min_2995_5990_freezing_duration %>%
+                     filter(strain %in% c("IMPTNT_Ptp99A", "TNT_Ptp99A"),
+                            sex == "Female", n_inds == "Group"))
 stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
                    data = dfm_motion_cue_exit_coeff_trial2 %>%
                      filter(strain %in% c("IMPTNT_Ptp99A", "TNT_Ptp99A"),
                             sex == "Female"))
 
+###### NA_R9B08 vs. Ptp99ARNAi_R9B08 ######
+stats::wilcox.test(freezing_duration ~ strain, 
+                   data = dfm_s5min_2995_5990_freezing_duration %>%
+                     filter(strain %in% c("NA_R9B08", "Ptp99ARNAi_R9B08"),
+                            sex == "Female", n_inds == "Single"))
+stats::wilcox.test(freezing_duration ~ strain, 
+                   data = dfm_s5min_2995_5990_freezing_duration %>%
+                     filter(strain %in% c("NA_R9B08", "Ptp99ARNAi_R9B08"),
+                            sex == "Female", n_inds == "Group"))
+stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
+                   data = dfm_motion_cue_exit_coeff_trial2 %>%
+                     filter(strain %in% c("NA_R9B08", "Ptp99ARNAi_R9B08"),
+                            sex == "Female"))
+
+###### Ptp99ARNAi_NA vs. Ptp99ARNAi_R9B08 ######
+stats::wilcox.test(freezing_duration ~ strain, 
+                   data = dfm_s5min_2995_5990_freezing_duration %>%
+                     filter(strain %in% c("Ptp99ARNAi_NA", "Ptp99ARNAi_R9B08"),
+                            sex == "Female", n_inds == "Single"))
+stats::wilcox.test(freezing_duration ~ strain, 
+                   data = dfm_s5min_2995_5990_freezing_duration %>%
+                     filter(strain %in% c("Ptp99ARNAi_NA", "Ptp99ARNAi_R9B08"),
+                            sex == "Female", n_inds == "Group"))
+stats::wilcox.test(motion_cue_exit_intercept ~ strain, 
+                   data = dfm_motion_cue_exit_coeff_trial2 %>%
+                     filter(strain %in% c("Ptp99ARNAi_NA", "Ptp99ARNAi_R9B08"),
+                            sex == "Female"))
 
 ##### Figure 3a #####
 ###### freezing duration Ptp99ARNAi_R9B08 ######

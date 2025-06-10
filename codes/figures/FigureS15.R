@@ -20,6 +20,22 @@ dfd_s5min_2995_5990_gd_freezing_duration_dist <-
   read_parquet("../data/2_mixed_strain/parquet/dfd_s5min_2995_5990_gd_freezing_duration_dist.parquet") %>%
   ungroup()
 
+##### stat #####
+df_figS15a_stats <- dfd_s5min_2995_5990_gd_freezing_duration_dist %>%
+  group_by(thr_sec) %>%
+  dplyr::summarize(
+    r = cor(freezing_duration_dist, performance, use = "complete.obs"),
+    cor_test = list(cor.test(freezing_duration_dist, performance, use = "complete.obs")),
+    .groups = "drop"
+  ) %>%
+  dplyr::mutate(
+    p_value = map_dbl(cor_test, ~ .x$p.value),
+    r_squared = r**2,
+    p_formatted = sprintf("%.2e", p_value)
+  ) %>%
+  dplyr::select(thr_sec, r_squared, p_formatted) %>%
+  print()
+
 ##### make plot #####
 g_s5min_2995_5990_gd_freezing_duration_dist_facet <-
   ggplot(dfd_s5min_2995_5990_gd_freezing_duration_dist,
@@ -55,6 +71,22 @@ g_s5min_2995_5990_gd_freezing_duration_dist_facet
 dfd_s5min_2995_5990_gd_motion_cue_exit_intercept_dist <- 
   read_parquet("../data/2_mixed_strain/parquet/dfd_s5min_2995_5990_gd_motion_cue_exit_intercept_dist.parquet") %>%
   ungroup()
+
+##### stat #####
+df_figS15b_stats <- dfd_s5min_2995_5990_gd_motion_cue_exit_intercept_dist %>%
+  group_by(thr_sec) %>%
+  dplyr::summarize(
+    r = cor(motion_cue_exit_intercept_dist, performance, use = "complete.obs"),
+    cor_test = list(cor.test(motion_cue_exit_intercept_dist, performance, use = "complete.obs")),
+    .groups = "drop"
+  ) %>%
+  dplyr::mutate(
+    p_value = map_dbl(cor_test, ~ .x$p.value),
+    r_squared = r**2,
+    p_formatted = sprintf("%.2e", p_value)
+  ) %>%
+  dplyr::select(thr_sec, r_squared, p_formatted) %>%
+  print()
 
 ##### make plot #####
 g_s5min_2995_5990_gd_motion_cue_exit_intercept_dist_facet <-

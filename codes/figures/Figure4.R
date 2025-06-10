@@ -41,6 +41,13 @@ dfd_s5min_2995_5990_speed_sgd_normbyf5minave_allmean_pairedwilcox_res <- replace
                                                                                  dfd_s5min_2995_5990_speed_sgd_normbyf5minave_allmean_pairedwilcox_res=="ns",
                                                                                  NA)
 
+##### write Supplementary Data 9 #####
+df_SuppData9_Fig4a <-
+  dfd_s5min_2995_5990_speed_sgd_normbyf5minave_allmean_pairedwilcox_res %>% 
+  filter(str_detect(group1, "Group"))
+
+openxlsx::write.xlsx(df_SuppData9_Fig4a, "../figures/SuppData9_Fig4a.xlsx")
+
 ##### make plot #####
 g_d_f10min_speed_gd_onlymix_normbyf5minave_allmean <- 
   ggplot(dfd_f10min_speed_sgd_strain %>%
@@ -180,6 +187,12 @@ ggsave("../figures/Figure4b.pdf", g_d_s5min_stim_speed_normbyf5minave_performanc
 dfd_s5min_2995_5990_gd_freezing_duration_dist <- 
   read_parquet("../data/2_mixed_strain/parquet/dfd_s5min_2995_5990_gd_freezing_duration_dist.parquet") %>%
   ungroup()
+
+##### stat #####
+df_fig4c_stat <- dfd_s5min_2995_5990_gd_freezing_duration_dist %>%
+  filter(thr_sec == "Threshold: 3 s")
+stats::cor.test(x = df_fig4c_stat$freezing_duration_dist, 
+                y = df_fig4c_stat$performance)
 
 ##### make plot #####
 g_d_s5min_stim_speed_normbyf5minave_foraging_freezing_stopduration_diff <- 

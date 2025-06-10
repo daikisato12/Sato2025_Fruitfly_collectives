@@ -154,29 +154,26 @@ ggsave("../figures/FigureS20b.pdf",
        width = 4, height = 3)
 
 
-#### Figure S20c GWAS shared genes ####
-gene_motion_cue_exit_female <- 
-  read.table("../data/1_single_strain/gwas/result/tophits/tophits_motion_cue_exit_intercept_scaleT_female_geneid.txt") %>%
-  pull(V1)
+#### Figure S20c ####
+##### load dataset #####
+df_go <- list.files(paste0("../data/1_single_strain/gwas/METAL/enrichment/clusterProfiler_motion_cue_stop_freezing_abs_scaleT_metal/"), 
+                    pattern = "*.tsv", full.names = TRUE, recursive=T) %>% 
+  map_df(~ data.table::fread(., colClasses = c(ID = "character", 
+                                               Description = "character",
+                                               GeneRatio = "character",
+                                               BgRatio = "character",
+                                               geneID = "character",
+                                               Type = "character"))) %>%
+  dplyr::mutate(Description = str_to_sentence(Description),
+                GeneRatio = str_split(GeneRatio, "/") %>% 
+                  map_chr(1) %>% 
+                  as.numeric() / str_split(GeneRatio, "/") %>% 
+                  map_chr(2) %>% 
+                  as.numeric()) %>%
+  group_by(Type) %>%
+  arrange(qvalue) %>%
+  slice_head(n = 20) %>%
+  dplyr::mutate(type = "Female") %>%
+  filter(Type == "BP") %>%
+  ungroup()
 
-gene_motion_cue_cumsum_female <- 
-  read.table("../data/1_single_strain/gwas/result/tophits/tophits_motion_cue_stop_freezing_abs_scaleT_female_geneid.txt") %>%
-  pull(V1)
-
-mart <- biomaRt::useMart(biomart = "ensembl",  #useEnsembl or useMart
-                         host = "https://www.ensembl.org", 
-                         dataset = "dmelanogaster_gene_ensembl")
-
-gene_shared <- intersect(gene_motion_cue_exit_female,
-                            gene_motion_cue_cumsum_female)
-
-gene_shared_name <- biomaRt::getBM(attributes = c("external_gene_name", 
-                                                    "ensembl_gene_id"),
-                                     filters = "ensembl_gene_id",
-                                     values = gene_shared,
-                                     mart = mart) %>%
-  dplyr::rename(gene_name = external_gene_name)
-
-
-gene_shared_name$gene_name %>% gtools::mixedsort()
-setdiff(gene_shared, gene_shared_name$ensembl_gene_id)
